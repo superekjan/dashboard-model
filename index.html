@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>企业级家庭网络沙盘可视化大屏</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-black overflow-hidden">
+    <!-- 背景星空效果 -->
+    <div id="starfield" class="fixed inset-0 z-0"></div>
+    
+    <!-- 主容器 -->
+    <div class="relative z-10 w-full h-screen flex flex-col">
+        <!-- 顶部标题栏 -->
+        <header class="header-container">
+            <div class="header-decoration left"></div>
+            <div class="header-content">
+                <h1 class="main-title">
+                    <span class="title-icon">◈</span>
+                    家庭网络数据监控中心
+                    <span class="title-icon">◈</span>
+                </h1>
+                <div class="subtitle">HOME NETWORK DATA MONITORING CENTER</div>
+            </div>
+            <div class="header-decoration right"></div>
+            <div class="header-stats">
+                <div class="stat-item">
+                    <span class="stat-label">系统状态</span>
+                    <span class="stat-value status-online">● 在线</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">当前时间</span>
+                    <span class="stat-value" id="currentTime">--:--:--</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主体内容区 -->
+        <main class="flex-1 flex px-[1.5vw] py-[1.5vh] gap-[1.5vw] overflow-hidden">
+            <!-- 左侧数据面板 -->
+            <aside class="side-panel left-panel">
+                <!-- 光猫网络状态卡片 -->
+                <div class="data-card" id="ontCard">
+                    <div class="card-header">
+                        <div class="card-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="6" width="20" height="12" rx="2"/>
+                                <circle cx="8" cy="12" r="2"/>
+                                <circle cx="16" cy="12" r="2"/>
+                                <path d="M2 10h2"/>
+                                <path d="M20 10h2"/>
+                                <path d="M6 18v2"/>
+                                <path d="M18 18v2"/>
+                            </svg>
+                        </div>
+                        <h3 class="card-title">光猫网络状态</h3>
+                        <div class="card-status active"></div>
+                    </div>
+                    <div class="card-body">
+                        <div class="metric-grid">
+                            <div class="metric-item">
+                                <div class="metric-label">上行速率</div>
+                                <div class="metric-value">
+                                    <span class="value" id="uploadSpeed">0</span>
+                                    <span class="unit">Mbps</span>
+                                </div>
+                                <div class="metric-bar">
+                                    <div class="bar-fill" id="uploadBar"></div>
+                                </div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-label">下行速率</div>
+                                <div class="metric-value">
+                                    <span class="value" id="downloadSpeed">0</span>
+                                    <span class="unit">Mbps</span>
+                                </div>
+                                <div class="metric-bar">
+                                    <div class="bar-fill" id="downloadBar"></div>
+                                </div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-label">信号强度</div>
+                                <div class="metric-value">
+                                    <span class="value" id="signalStrength">0</span>
+                                    <span class="unit">dBm</span>
+                                </div>
+                                <div class="signal-indicator" id="signalIndicator">
+                                    <span></span><span></span><span></span><span></span><span></span>
+                                </div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-label">错误率</div>
+                                <div class="metric-value">
+                                    <span class="value" id="errorRate">0</span>
+                                    <span class="unit">%</span>
+                                </div>
+                                <div class="error-indicator" id="errorIndicator"></div>
+                            </div>
+                        </div>
+                        <div class="connection-stability">
+                            <div class="stability-label">连接稳定性</div>
+                            <div class="stability-chart" id="stabilityChart"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 路由器感知情况卡片 -->
+                <div class="data-card" id="routerCard">
+                    <div class="card-header">
+                        <div class="card-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="4" y="4" width="16" height="16" rx="2"/>
+                                <path d="M9 9h6v6H9z"/>
+                                <path d="M4 12h2"/>
+                                <path d="M18 12h2"/>
+                                <path d="M12 4v2"/>
+                                <path d="M12 18v2"/>
+                            </svg>
+                        </div>
+                        <h3 class="card-title">路由器感知情况</h3>
+                        <div class="card-status active"></div>
+                    </div>
+                    <div class="card-body">
+                        <div class="router-visual">
+                            <div class="router-core" id="routerCore">
+                                <div class="core-ring"></div>
+                                <div class="core-center">
+                                    <span class="device-count" id="connectedDevices">0</span>
+                                    <span class="device-label">已连接设备</span>
+                                </div>
+                            </div>
+                            <div class="router-waves" id="routerWaves"></div>
+                        </div>
+                        <div class="resource-metrics">
+                            <div class="resource-item">
+                                <div class="resource-circle" id="cpuCircle">
+                                    <svg viewBox="0 0 100 100">
+                                        <circle class="bg" cx="50" cy="50" r="45"/>
+                                        <circle class="progress" cx="50" cy="50" r="45" id="cpuProgress"/>
+                                    </svg>
+                                    <div class="resource-info">
+                                        <span class="resource-value" id="cpuUsage">0%</span>
+                                        <span class="resource-name">CPU</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="resource-item">
+                                <div class="resource-circle" id="memoryCircle">
+                                    <svg viewBox="0 0 100 100">
+                                        <circle class="bg" cx="50" cy="50" r="45"/>
+                                        <circle class="progress" cx="50" cy="50" r="45" id="memoryProgress"/>
+                                    </svg>
+                                    <div class="resource-info">
+                                        <span class="resource-value" id="memoryUsage">0%</span>
+                                        <span class="resource-name">内存</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="resource-item">
+                                <div class="resource-circle" id="tempCircle">
+                                    <svg viewBox="0 0 100 100">
+                                        <circle class="bg" cx="50" cy="50" r="45"/>
+                                        <circle class="progress" cx="50" cy="50" r="45" id="tempProgress"/>
+                                    </svg>
+                                    <div class="resource-info">
+                                        <span class="resource-value" id="temperature">0°C</span>
+                                        <span class="resource-name">温度</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="load-indicator">
+                            <div class="load-label">系统负载</div>
+                            <div class="load-bar-container">
+                                <div class="load-bar" id="loadBar"></div>
+                            </div>
+                            <div class="load-value" id="loadValue">低</div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 中央3D户型图区域 -->
+            <section class="center-panel">
+                <div class="floor-plan-container">
+                    <div class="floor-plan-3d" id="floorPlan3d">
+                        <canvas id="threejsCanvas"></canvas>
+                    </div>
+                    <div class="floor-plan-overlay"></div>
+                    <div class="signal-heatmap" id="signalHeatmap"></div>
+                </div>
+                <div class="center-controls">
+                    <button class="control-btn" id="rotateBtn" title="自动旋转">
+                        <span>↻</span>
+                    </button>
+                    <button class="control-btn" id="resetBtn" title="重置视角">
+                        <span>⌂</span>
+                    </button>
+                    <button class="control-btn" id="heatmapBtn" title="信号热力图">
+                        <span>◫</span>
+                    </button>
+                    <button class="control-btn" id="deviceBtn" title="设备分布">
+                        <span>◉</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- 右侧数据面板 -->
+            <aside class="side-panel right-panel">
+                <!-- 联网设备列表卡片 -->
+                <div class="data-card" id="deviceCard">
+                    <div class="card-header">
+                        <div class="card-icon">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <rect x="5" y="2" width="14" height="20" rx="2" stroke="currentColor" stroke-width="2" fill="none"/>
+                                <circle cx="12" cy="18" r="1" fill="currentColor"/>
+                            </svg>
+                        </div>
+                        <h3 class="card-title">联网设备列表</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="device-stats-summary">
+                            <div class="summary-item">
+                                <span class="summary-value" id="totalDevices">0</span>
+                                <span class="summary-label">总设备</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-value" id="activeDevices">0</span>
+                                <span class="summary-label">在线</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-value" id="highTrafficDevices">0</span>
+                                <span class="summary-label">高流量</span>
+                            </div>
+                        </div>
+                        <div class="device-list-container">
+                            <div class="device-list-header">
+                                <span>设备</span>
+                                <span>IP地址</span>
+                                <span>流量</span>
+                                <span>状态</span>
+                            </div>
+                            <div class="device-list" id="deviceList">
+                                <!-- 设备列表项将通过JS动态生成 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 网络质量历史趋势卡片 -->
+                <div class="data-card" id="trendCard">
+                    <div class="card-header">
+                        <div class="card-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="22,6 12,13 2,6"/>
+                                <rect x="2" y="12" width="20" height="10" rx="2"/>
+                            </svg>
+                        </div>
+                        <h3 class="card-title">网络质量历史趋势</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="trend-charts">
+                            <div class="trend-chart-container">
+                                <div class="chart-title">带宽波动</div>
+                                <div class="chart-area" id="bandwidthChart"></div>
+                            </div>
+                            <div class="trend-chart-container">
+                                <div class="chart-title">延迟变化</div>
+                                <div class="chart-area" id="latencyChart"></div>
+                            </div>
+                            <div class="trend-chart-container">
+                                <div class="chart-title">丢包率</div>
+                                <div class="chart-area" id="packetLossChart"></div>
+                            </div>
+                        </div>
+                        <div class="quality-score">
+                            <div class="score-circle" id="qualityScore">
+                                <svg viewBox="0 0 120 120">
+                                    <circle class="bg" cx="60" cy="60" r="54"/>
+                                    <circle class="progress" cx="60" cy="60" r="54" id="qualityProgress"/>
+                                </svg>
+                                <div class="score-info">
+                                    <span class="score-value" id="qualityValue">98</span>
+                                    <span class="score-label">网络质量评分</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <!-- 底部信息栏 -->
+        <footer class="footer-container">
+            <div class="footer-item">
+                <span class="footer-label">网络运营商</span>
+                <span class="footer-value">中国电信</span>
+            </div>
+            <div class="footer-item">
+                <span class="footer-label">宽带套餐</span>
+                <span class="footer-value">1000M光纤</span>
+            </div>
+            <div class="footer-item">
+                <span class="footer-label">公网IP</span>
+                <span class="footer-value" id="publicIP">--.--.--.--</span>
+            </div>
+            <div class="footer-item">
+                <span class="footer-label">DNS服务器</span>
+                <span class="footer-value">223.5.5.5</span>
+            </div>
+            <div class="footer-item">
+                <span class="footer-label">运行时长</span>
+                <span class="footer-value" id="uptime">0天 00:00:00</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- 悬浮提示框 -->
+    <div class="tooltip" id="tooltip"></div>
+
+    <!-- 加载动画 -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">系统初始化中...</div>
+            <div class="loading-progress">
+                <div class="progress-bar" id="loadingProgress"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
