@@ -1,1084 +1,1090 @@
-/**
- * 企业级家庭网络沙盘可视化大屏 - 主应用
- * 包含3D可视化、实时数据更新、交互功能
- */
+const API_BASE = 'http://localhost:3000/api';
 
-// ============================================
-// 全局配置和状态
-// ============================================
-const CONFIG = {
-    refreshRate: 2000, // 数据刷新间隔（毫秒）
-    chartColors: {
-        primary: '#00d4ff',
-        secondary: '#7b2cbf',
-        accent: '#ff006e',
-        success: '#00f5d4',
-        warning: '#fee440',
-        danger: '#f15bb5'
-    },
-    mockData: true // 使用模拟数据
-};
+const LibLoader = {
+    loaded: false,
 
-const AppState = {
-    isAutoRotate: false,
-    currentTimeRange: 'day',
-    deviceFilter: 'all',
-    charts: {},
-    threeScene: null,
-    uptime: 0
-};
+    async load() {
+        if (this.loaded) return true;
+        this.loaded = true;
 
-// ============================================
-// 模拟数据生成器
-// ============================================
-const DataGenerator = {
-    // 生成随机数
-    random: (min, max) => Math.random() * (max - min) + min,
-    
-    // 生成整数随机数
-    randomInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
-    
-    // 生成光猫状态数据
-    generateONTData() {
-        return {
-            uploadSpeed: this.randomInt(50, 150),
-            downloadSpeed: this.randomInt(200, 800),
-            signalStrength: this.randomInt(-75, -45),
-            errorRate: (this.random(0, 0.5)).toFixed(3),
-            stability: Array.from({length: 20}, () => this.randomInt(85, 100))
-        };
-    },
-    
-    // 生成路由器数据
-    generateRouterData() {
-        return {
-            connectedDevices: this.randomInt(8, 25),
-            cpuUsage: this.randomInt(20, 65),
-            memoryUsage: this.randomInt(30, 70),
-            temperature: this.randomInt(45, 65),
-            loadLevel: this.randomInt(1, 4) // 1-4: 低、中、高、极高
-        };
-    },
-    
-    // 生成设备列表
-    generateDeviceList() {
-        const deviceTypes = [
-            { type: 'mobile', icon: '📱', names: ['iPhone 14 Pro', 'iPhone 13', 'Samsung S23', 'Xiaomi 13', 'iPad Pro'] },
-            { type: 'pc', icon: '💻', names: ['MacBook Pro', 'ThinkPad X1', 'iMac', 'Desktop PC', 'Surface Pro'] },
-            { type: 'iot', icon: '📟', names: ['小米电视', '智能音箱', '扫地机器人', '智能门锁', '摄像头', '空调', '空气净化器'] }
+        const libs = [
+            { name: 'echarts', check: 'echarts', url: 'https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js' },
+            { name: 'three', check: 'THREE', url: 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js' }
         ];
-        
-        const devices = [];
-        const count = this.randomInt(12, 20);
-        
-        for (let i = 0; i < count; i++) {
-            const typeInfo = deviceTypes[this.randomInt(0, deviceTypes.length - 1)];
-            const name = typeInfo.names[this.randomInt(0, typeInfo.names.length - 1)];
-            const isOnline = Math.random() > 0.1;
-            
-            devices.push({
-                id: `device_${i}`,
-                name: name,
-                type: typeInfo.type,
-                icon: typeInfo.icon,
-                mac: `AA:BB:CC:${this.randomInt(10, 99)}:${this.randomInt(10, 99)}:${this.randomInt(10, 99)}`,
-                ip: `192.168.1.${this.randomInt(10, 200)}`,
-                traffic: isOnline ? `${this.randomInt(1, 50)} MB/s` : '0 MB/s',
-                duration: isOnline ? `${this.randomInt(1, 24)}h ${this.randomInt(0, 59)}m` : '--',
-                status: isOnline ? 'online' : 'offline',
-                signal: isOnline ? this.randomInt(60, 100) : 0
-            });
-        }
-        
-        return devices;
-    },
-    
-    // 生成历史趋势数据
-    generateTrendData(range) {
-        const points = range === 'day' ? 24 : range === 'week' ? 7 : 30;
-        const labels = [];
-        const bandwidth = [];
-        const latency = [];
-        const packetLoss = [];
-        
-        for (let i = 0; i < points; i++) {
-            if (range === 'day') {
-                labels.push(`${i}:00`);
-            } else if (range === 'week') {
-                const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-                labels.push(days[i]);
-            } else {
-                labels.push(`${i + 1}日`);
+
+        for (const lib of libs) {
+            if (!window[lib.check]) {
+                await this.loadScript(lib.url);
             }
-            
-            bandwidth.push(this.randomInt(300, 900));
-            latency.push(this.randomInt(10, 80));
-            packetLoss.push((this.random(0, 2)).toFixed(2));
         }
-        
-        return { labels, bandwidth, latency, packetLoss };
+        return true;
+    },
+
+    loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
     }
 };
 
-// ============================================
-// Three.js 3D户型图
-// ============================================
-class FloorPlan3D {
-    constructor(containerId) {
-        this.container = document.getElementById(containerId);
-        this.scene = null;
-        this.camera = null;
-        this.renderer = null;
-        this.controls = null;
-        this.rooms = [];
-        this.devices = [];
-        this.isAutoRotate = false;
-        this.animationId = null;
-        
-        this.init();
-    }
-    
-    init() {
-        // 创建场景
-        this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x050a14);
-        this.scene.fog = new THREE.FogExp2(0x050a14, 0.02);
-        
-        // 创建相机
-        const aspect = this.container.clientWidth / this.container.clientHeight;
-        this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
-        this.camera.position.set(0, 25, 25);
-        this.camera.lookAt(0, 0, 0);
-        
-        // 创建渲染器
-        this.renderer = new THREE.WebGLRenderer({ 
-            canvas: document.getElementById('threejsCanvas'),
-            antialias: true,
-            alpha: true
-        });
-        this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        
-        // 添加灯光
-        this.setupLights();
-        
-        // 创建户型
-        this.createFloorPlan();
-        
-        // 添加设备标记
-        this.createDeviceMarkers();
-        
-        // 开始动画循环
-        this.animate();
-        
-        // 监听窗口大小变化
-        window.addEventListener('resize', () => this.onWindowResize());
-    }
-    
-    setupLights() {
-        // 环境光
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
-        this.scene.add(ambientLight);
-        
-        // 主光源
-        const mainLight = new THREE.DirectionalLight(0x00d4ff, 0.8);
-        mainLight.position.set(10, 20, 10);
-        mainLight.castShadow = true;
-        mainLight.shadow.mapSize.width = 2048;
-        mainLight.shadow.mapSize.height = 2048;
-        this.scene.add(mainLight);
-        
-        // 辅助光源
-        const auxLight = new THREE.PointLight(0x7b2cbf, 0.5, 50);
-        auxLight.position.set(-10, 10, -10);
-        this.scene.add(auxLight);
-        
-        // 底部发光效果
-        const bottomLight = new THREE.PointLight(0x00d4ff, 0.3, 30);
-        bottomLight.position.set(0, -5, 0);
-        this.scene.add(bottomLight);
-    }
-    
-    createFloorPlan() {
-        // 地板
-        const floorGeometry = new THREE.PlaneGeometry(20, 16);
-        const floorMaterial = new THREE.MeshStandardMaterial({
-            color: 0x0a1525,
-            roughness: 0.8,
-            metalness: 0.2,
-            transparent: true,
-            opacity: 0.9
-        });
-        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-        floor.rotation.x = -Math.PI / 2;
-        floor.receiveShadow = true;
-        this.scene.add(floor);
-        
-        // 地板网格
-        const gridHelper = new THREE.GridHelper(20, 20, 0x00d4ff, 0x1a3a5c);
-        gridHelper.position.y = 0.01;
-        gridHelper.material.opacity = 0.3;
-        gridHelper.material.transparent = true;
-        this.scene.add(gridHelper);
-        
-        // 房间定义
-        const roomConfigs = [
-            { name: 'livingRoom', x: 0, z: 0, w: 8, h: 6, color: 0x1a3a5c, label: '客厅' },
-            { name: 'masterBedroom', x: 5, z: -4, w: 4, h: 4, color: 0x2a4a6c, label: '主卧' },
-            { name: 'guestBedroom', x: -5, z: -4, w: 4, h: 4, color: 0x2a4a6c, label: '次卧' },
-            { name: 'kitchen', x: -5, z: 4, w: 4, h: 3, color: 0x3a5a7c, label: '厨房' },
-            { name: 'bathroom', x: 5, z: 4, w: 3, h: 3, color: 0x3a5a7c, label: '卫生间' },
-            { name: 'balcony', x: 0, z: 6, w: 6, h: 2, color: 0x4a6a8c, label: '阳台' }
-        ];
-        
-        roomConfigs.forEach(config => {
-            this.createRoom(config);
-        });
-        
-        // 墙壁
-        this.createWalls();
-    }
-    
-    createRoom(config) {
-        const geometry = new THREE.BoxGeometry(config.w, 0.2, config.h);
-        const material = new THREE.MeshStandardMaterial({
-            color: config.color,
-            transparent: true,
-            opacity: 0.7,
-            emissive: config.color,
-            emissiveIntensity: 0.1
-        });
-        
-        const room = new THREE.Mesh(geometry, material);
-        room.position.set(config.x, 0.1, config.z);
-        room.userData = { name: config.name, label: config.label };
-        room.castShadow = true;
-        room.receiveShadow = true;
-        
-        // 添加发光边框
-        const edges = new THREE.EdgesGeometry(geometry);
-        const lineMaterial = new THREE.LineBasicMaterial({ 
-            color: 0x00d4ff,
-            transparent: true,
-            opacity: 0.5
-        });
-        const wireframe = new THREE.LineSegments(edges, lineMaterial);
-        room.add(wireframe);
-        
-        this.scene.add(room);
-        this.rooms.push(room);
-        
-        // 添加房间标签
-        this.createRoomLabel(config);
-    }
-    
-    createRoomLabel(config) {
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.width = 128;
-        canvas.height = 64;
-        
-        context.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        context.fillRect(0, 0, 128, 64);
-        
-        context.strokeStyle = '#00d4ff';
-        context.lineWidth = 2;
-        context.strokeRect(2, 2, 124, 60);
-        
-        context.fillStyle = '#00d4ff';
-        context.font = 'bold 20px Arial';
-        context.textAlign = 'center';
-        context.fillText(config.label, 64, 40);
-        
-        const texture = new THREE.CanvasTexture(canvas);
-        const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-        const sprite = new THREE.Sprite(spriteMaterial);
-        sprite.position.set(config.x, 2, config.z);
-        sprite.scale.set(2, 1, 1);
-        
-        this.scene.add(sprite);
-    }
-    
-    createWalls() {
-        const wallHeight = 3;
-        const wallThickness = 0.2;
-        
-        // 外墙
-        const outerWalls = [
-            { x: 0, y: wallHeight/2, z: -7.5, w: 20, h: wallHeight, d: wallThickness },
-            { x: 0, y: wallHeight/2, z: 7.5, w: 20, h: wallHeight, d: wallThickness },
-            { x: -9.9, y: wallHeight/2, z: 0, w: wallThickness, h: wallHeight, d: 15 },
-            { x: 9.9, y: wallHeight/2, z: 0, w: wallThickness, h: wallHeight, d: 15 }
-        ];
-        
-        outerWalls.forEach(wall => {
-            const geometry = new THREE.BoxGeometry(wall.w, wall.h, wall.d);
-            const material = new THREE.MeshStandardMaterial({
-                color: 0x1a3a5c,
-                transparent: true,
-                opacity: 0.3
-            });
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.set(wall.x, wall.y, wall.z);
-            this.scene.add(mesh);
-        });
-    }
-    
-    createDeviceMarkers() {
-        const devicePositions = [
-            { x: 0, z: 0, type: 'router', color: 0x00d4ff },
-            { x: -2, z: 1, type: 'tv', color: 0xff006e },
-            { x: 2, z: -1, type: 'phone', color: 0x00f5d4 },
-            { x: 5, z: -4, type: 'laptop', color: 0xfee440 },
-            { x: -5, z: -4, type: 'tablet', color: 0x7b2cbf },
-            { x: -5, z: 4, type: 'iot', color: 0xf15bb5 },
-            { x: 5, z: 4, type: 'camera', color: 0xff006e }
-        ];
-        
-        devicePositions.forEach((pos, index) => {
-            this.createDeviceMarker(pos, index);
-        });
-    }
-    
-    createDeviceMarker(pos, index) {
-        // 设备标记球体
-        const geometry = new THREE.SphereGeometry(0.3, 16, 16);
-        const material = new THREE.MeshStandardMaterial({
-            color: pos.color,
-            emissive: pos.color,
-            emissiveIntensity: 0.5
-        });
-        const marker = new THREE.Mesh(geometry, material);
-        marker.position.set(pos.x, 1, pos.z);
-        
-        // 添加发光效果
-        const light = new THREE.PointLight(pos.color, 1, 5);
-        light.position.set(0, 0, 0);
-        marker.add(light);
-        
-        // 添加脉冲动画
-        marker.userData = {
-            originalY: 1,
-            phase: index * 0.5,
-            speed: 2
-        };
-        
-        this.scene.add(marker);
-        this.devices.push(marker);
-        
-        // 添加信号波
-        this.createSignalWave(pos, pos.color);
-    }
-    
-    createSignalWave(pos, color) {
-        const waveGeometry = new THREE.RingGeometry(0.5, 0.6, 32);
-        const waveMaterial = new THREE.MeshBasicMaterial({
-            color: color,
-            transparent: true,
-            opacity: 0.5,
-            side: THREE.DoubleSide
-        });
-        
-        const wave = new THREE.Mesh(waveGeometry, waveMaterial);
-        wave.position.set(pos.x, 0.1, pos.z);
-        wave.rotation.x = -Math.PI / 2;
-        
-        wave.userData = {
-            scale: 1,
-            opacity: 0.5,
-            speed: 0.02
-        };
-        
-        this.scene.add(wave);
-        
-        // 动画更新
-        const animateWave = () => {
-            wave.userData.scale += wave.userData.speed;
-            wave.userData.opacity -= 0.01;
-            
-            if (wave.userData.opacity <= 0) {
-                wave.userData.scale = 1;
-                wave.userData.opacity = 0.5;
-            }
-            
-            wave.scale.set(wave.userData.scale, wave.userData.scale, 1);
-            wave.material.opacity = wave.userData.opacity;
-            
-            requestAnimationFrame(animateWave);
-        };
-        animateWave();
-    }
-    
-    animate() {
-        this.animationId = requestAnimationFrame(() => this.animate());
-        
-        const time = Date.now() * 0.001;
-        
-        // 设备标记浮动动画
-        this.devices.forEach(device => {
-            const y = device.userData.originalY + 
-                     Math.sin(time * device.userData.speed + device.userData.phase) * 0.2;
-            device.position.y = y;
-        });
-        
-        // 自动旋转
-        if (this.isAutoRotate) {
-            this.scene.rotation.y += 0.002;
-        }
-        
-        this.renderer.render(this.scene, this.camera);
-    }
-    
-    onWindowResize() {
-        const aspect = this.container.clientWidth / this.container.clientHeight;
-        this.camera.aspect = aspect;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
-    }
-    
-    toggleAutoRotate() {
-        this.isAutoRotate = !this.isAutoRotate;
-        return this.isAutoRotate;
-    }
-    
-    resetView() {
-        this.camera.position.set(0, 25, 25);
-        this.camera.lookAt(0, 0, 0);
-        this.scene.rotation.y = 0;
-        this.isAutoRotate = false;
-    }
-    
-    showHeatmap() {
-        // 切换热力图显示
-        this.rooms.forEach(room => {
-            const intensity = Math.random() * 0.5 + 0.2;
-            room.material.emissiveIntensity = intensity;
-            
-            // 根据强度设置颜色
-            if (intensity > 0.6) {
-                room.material.emissive.setHex(0x00f5d4); // 强信号 - 青色
-            } else if (intensity > 0.4) {
-                room.material.emissive.setHex(0xfee440); // 中等 - 黄色
-            } else {
-                room.material.emissive.setHex(0xff006e); // 弱信号 - 红色
-            }
-        });
-    }
-    
-    showDevices() {
-        // 重置房间颜色
-        this.rooms.forEach(room => {
-            room.material.emissiveIntensity = 0.1;
-            room.material.emissive.setHex(room.material.color.getHex());
-        });
-    }
-    
-    destroy() {
-        if (this.animationId) {
-            cancelAnimationFrame(this.animationId);
-        }
-        this.renderer.dispose();
-    }
-}
-
-// ============================================
-// 图表管理器
-// ============================================
-class ChartManager {
+class NetworkMonitor {
     constructor() {
-        this.charts = {};
-    }
-    
-    // 初始化稳定性图表
-    initStabilityChart(containerId) {
-        const chart = echarts.init(document.getElementById(containerId));
-        const option = {
-            grid: {
-                left: 0,
-                right: 0,
-                top: 5,
-                bottom: 5
-            },
-            xAxis: {
-                type: 'category',
-                show: false,
-                data: Array.from({length: 20}, (_, i) => i)
-            },
-            yAxis: {
-                type: 'value',
-                show: false,
-                min: 0,
-                max: 100
-            },
-            series: [{
-                type: 'line',
-                data: Array.from({length: 20}, () => 95),
-                smooth: true,
-                symbol: 'none',
-                lineStyle: {
-                    color: '#00d4ff',
-                    width: 2
-                },
-                areaStyle: {
-                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                        { offset: 0, color: 'rgba(0, 212, 255, 0.3)' },
-                        { offset: 1, color: 'rgba(0, 212, 255, 0)' }
-                    ])
-                }
-            }]
+        this.data = {
+            ont: null,
+            router: null,
+            devices: []
         };
-        chart.setOption(option);
-        this.charts[containerId] = chart;
-        return chart;
-    }
-    
-    // 初始化带宽趋势图
-    initBandwidthChart(containerId, data) {
-        const chart = echarts.init(document.getElementById(containerId));
-        const option = {
-            grid: {
-                left: 0,
-                right: 0,
-                top: 5,
-                bottom: 5
-            },
-            xAxis: {
-                type: 'category',
-                show: false,
-                data: data.labels
-            },
-            yAxis: {
-                type: 'value',
-                show: false
-            },
-            series: [{
-                type: 'line',
-                data: data.bandwidth,
-                smooth: true,
-                symbol: 'none',
-                lineStyle: {
-                    color: '#00d4ff',
-                    width: 2
-                },
-                areaStyle: {
-                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                        { offset: 0, color: 'rgba(0, 212, 255, 0.4)' },
-                        { offset: 1, color: 'rgba(0, 212, 255, 0)' }
-                    ])
-                }
-            }]
-        };
-        chart.setOption(option);
-        this.charts[containerId] = chart;
-        return chart;
-    }
-    
-    // 初始化延迟图表
-    initLatencyChart(containerId, data) {
-        const chart = echarts.init(document.getElementById(containerId));
-        const option = {
-            grid: {
-                left: 0,
-                right: 0,
-                top: 5,
-                bottom: 5
-            },
-            xAxis: {
-                type: 'category',
-                show: false,
-                data: data.labels
-            },
-            yAxis: {
-                type: 'value',
-                show: false
-            },
-            series: [{
-                type: 'bar',
-                data: data.latency,
-                itemStyle: {
-                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                        { offset: 0, color: '#fee440' },
-                        { offset: 1, color: 'rgba(254, 228, 64, 0.2)' }
-                    ])
-                }
-            }]
-        };
-        chart.setOption(option);
-        this.charts[containerId] = chart;
-        return chart;
-    }
-    
-    // 初始化丢包率图表
-    initPacketLossChart(containerId, data) {
-        const chart = echarts.init(document.getElementById(containerId));
-        const option = {
-            grid: {
-                left: 0,
-                right: 0,
-                top: 5,
-                bottom: 5
-            },
-            xAxis: {
-                type: 'category',
-                show: false,
-                data: data.labels
-            },
-            yAxis: {
-                type: 'value',
-                show: false
-            },
-            series: [{
-                type: 'line',
-                data: data.packetLoss,
-                smooth: true,
-                symbol: 'none',
-                lineStyle: {
-                    color: '#ff006e',
-                    width: 2
-                }
-            }]
-        };
-        chart.setOption(option);
-        this.charts[containerId] = chart;
-        return chart;
-    }
-    
-    // 更新图表
-    updateChart(containerId, data) {
-        const chart = this.charts[containerId];
-        if (chart) {
-            chart.setOption({
-                series: [{
-                    data: data
-                }]
-            });
-        }
-    }
-    
-    // 销毁所有图表
-    destroyAll() {
-        Object.values(this.charts).forEach(chart => {
-            chart.dispose();
-        });
-        this.charts = {};
-    }
-    
-    // 响应式调整
-    resizeAll() {
-        Object.values(this.charts).forEach(chart => {
-            chart.resize();
-        });
-    }
-}
-
-// ============================================
-// UI更新器
-// ============================================
-class UIUpdater {
-    constructor() {
-        this.chartManager = new ChartManager();
-    }
-    
-    // 更新时间显示
-    updateTime() {
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString('zh-CN', { hour12: false });
-        document.getElementById('currentTime').textContent = timeStr;
-    }
-    
-    // 更新光猫状态
-    updateONT(data) {
-        // 上行速率
-        document.getElementById('uploadSpeed').textContent = data.uploadSpeed;
-        document.getElementById('uploadBar').style.width = `${(data.uploadSpeed / 200) * 100}%`;
-        
-        // 下行速率
-        document.getElementById('downloadSpeed').textContent = data.downloadSpeed;
-        document.getElementById('downloadBar').style.width = `${(data.downloadSpeed / 1000) * 100}%`;
-        
-        // 信号强度
-        document.getElementById('signalStrength').textContent = data.signalStrength;
-        const signalBars = document.querySelectorAll('#signalIndicator span');
-        const signalLevel = Math.min(5, Math.max(1, Math.floor((data.signalStrength + 100) / 10)));
-        signalBars.forEach((bar, index) => {
-            bar.classList.toggle('active', index < signalLevel);
-        });
-        
-        // 错误率
-        document.getElementById('errorRate').textContent = data.errorRate;
-        document.getElementById('errorIndicator').style.setProperty('--error-width', `${data.errorRate * 100}%`);
-        
-        // 稳定性图表
-        this.chartManager.updateChart('stabilityChart', data.stability);
-    }
-    
-    // 更新路由器状态
-    updateRouter(data) {
-        // 连接设备数
-        const deviceCountEl = document.getElementById('connectedDevices');
-        const currentCount = parseInt(deviceCountEl.textContent) || 0;
-        this.animateNumber(deviceCountEl, currentCount, data.connectedDevices);
-        
-        // CPU使用率
-        document.getElementById('cpuUsage').textContent = `${data.cpuUsage}%`;
-        const cpuOffset = 283 - (283 * data.cpuUsage / 100);
-        document.getElementById('cpuProgress').style.strokeDashoffset = cpuOffset;
-        
-        // 内存使用率
-        document.getElementById('memoryUsage').textContent = `${data.memoryUsage}%`;
-        const memoryOffset = 283 - (283 * data.memoryUsage / 100);
-        document.getElementById('memoryProgress').style.strokeDashoffset = memoryOffset;
-        
-        // 温度
-        document.getElementById('temperature').textContent = `${data.temperature}°C`;
-        const tempPercent = (data.temperature / 80) * 100;
-        const tempOffset = 283 - (283 * tempPercent / 100);
-        document.getElementById('tempProgress').style.strokeDashoffset = tempOffset;
-        
-        // 根据温度改变颜色
-        const tempCircle = document.getElementById('tempCircle');
-        if (data.temperature > 60) {
-            tempCircle.querySelector('.progress').style.stroke = '#ff006e';
-        } else if (data.temperature > 50) {
-            tempCircle.querySelector('.progress').style.stroke = '#fee440';
-        } else {
-            tempCircle.querySelector('.progress').style.stroke = '#00d4ff';
-        }
-        
-        // 系统负载
-        const loadBar = document.getElementById('loadBar');
-        const loadValue = document.getElementById('loadValue');
-        const loadPercent = (data.loadLevel / 4) * 100;
-        loadBar.style.width = `${loadPercent}%`;
-        
-        const loadLabels = ['低', '中', '高', '极高'];
-        loadValue.textContent = loadLabels[data.loadLevel - 1];
-    }
-    
-    // 更新设备列表
-    updateDeviceList(devices) {
-        const listContainer = document.getElementById('deviceList');
-        const filter = AppState.deviceFilter;
-        
-        // 过滤设备
-        const filteredDevices = filter === 'all' 
-            ? devices 
-            : devices.filter(d => d.type === filter);
-        
-        // 更新统计
-        document.getElementById('totalDevices').textContent = devices.length;
-        document.getElementById('activeDevices').textContent = devices.filter(d => d.status === 'online').length;
-        document.getElementById('highTrafficDevices').textContent = devices.filter(d => {
-            const traffic = parseInt(d.traffic);
-            return !isNaN(traffic) && traffic > 20;
-        }).length;
-        
-        // 生成列表HTML
-        listContainer.innerHTML = filteredDevices.map(device => `
-            <div class="device-item" data-device-id="${device.id}">
-                <div class="device-info">
-                    <div class="device-icon">${device.icon}</div>
-                    <div class="device-details">
-                        <span class="device-name">${device.name}</span>
-                        <span class="device-mac">${device.mac}</span>
-                    </div>
-                </div>
-                <div class="device-ip">${device.ip}</div>
-                <div class="device-traffic">${device.traffic}</div>
-                <div class="device-status">
-                    <span class="status-dot ${device.status}"></span>
-                    <span class="status-text">${device.status === 'online' ? '在线' : '离线'}</span>
-                </div>
-            </div>
-        `).join('');
-        
-        // 添加悬停事件
-        listContainer.querySelectorAll('.device-item').forEach(item => {
-            item.addEventListener('mouseenter', (e) => {
-                const deviceId = e.currentTarget.dataset.deviceId;
-                this.showDeviceTooltip(e, devices.find(d => d.id === deviceId));
-            });
-            item.addEventListener('mouseleave', () => {
-                this.hideTooltip();
-            });
-        });
-    }
-    
-    // 更新趋势图表
-    updateTrendCharts(data) {
-        this.chartManager.updateChart('bandwidthChart', data.bandwidth);
-        this.chartManager.updateChart('latencyChart', data.latency);
-        this.chartManager.updateChart('packetLossChart', data.packetLoss);
-    }
-    
-    // 更新网络质量评分
-    updateQualityScore(score) {
-        document.getElementById('qualityValue').textContent = score;
-        const offset = 339 - (339 * score / 100);
-        document.getElementById('qualityProgress').style.strokeDashoffset = offset;
-        
-        // 根据分数改变颜色
-        const progress = document.getElementById('qualityProgress');
-        if (score >= 90) {
-            progress.style.stroke = '#00f5d4';
-        } else if (score >= 70) {
-            progress.style.stroke = '#fee440';
-        } else {
-            progress.style.stroke = '#ff006e';
-        }
-    }
-    
-    // 更新公网IP
-    updatePublicIP() {
-        const ip = `${DataGenerator.randomInt(1, 255)}.${DataGenerator.randomInt(0, 255)}.${DataGenerator.randomInt(0, 255)}.${DataGenerator.randomInt(0, 255)}`;
-        document.getElementById('publicIP').textContent = ip;
-    }
-    
-    // 更新运行时长
-    updateUptime() {
-        AppState.uptime++;
-        const days = Math.floor(AppState.uptime / 86400);
-        const hours = Math.floor((AppState.uptime % 86400) / 3600);
-        const minutes = Math.floor((AppState.uptime % 3600) / 60);
-        const seconds = AppState.uptime % 60;
-        
-        const timeStr = `${days}天 ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-        document.getElementById('uptime').textContent = timeStr;
-    }
-    
-    // 数字动画
-    animateNumber(element, from, to) {
-        const duration = 500;
-        const startTime = performance.now();
-        
-        const animate = (currentTime) => {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            const easeProgress = 1 - Math.pow(1 - progress, 3);
-            const current = Math.round(from + (to - from) * easeProgress);
-            
-            element.textContent = current;
-            
-            if (progress < 1) {
-                requestAnimationFrame(animate);
-            }
-        };
-        
-        requestAnimationFrame(animate);
-    }
-    
-    // 显示设备提示
-    showDeviceTooltip(event, device) {
-        const tooltip = document.getElementById('tooltip');
-        tooltip.innerHTML = `
-            <div style="font-weight: bold; margin-bottom: 5px;">${device.name}</div>
-            <div>MAC: ${device.mac}</div>
-            <div>IP: ${device.ip}</div>
-            <div>流量: ${device.traffic}</div>
-            <div>连接时长: ${device.duration}</div>
-            <div>信号强度: ${device.signal}%</div>
-        `;
-        tooltip.style.left = `${event.clientX + 10}px`;
-        tooltip.style.top = `${event.clientY + 10}px`;
-        tooltip.classList.add('visible');
-    }
-    
-    // 隐藏提示
-    hideTooltip() {
-        document.getElementById('tooltip').classList.remove('visible');
-    }
-    
-    // 初始化所有图表
-    initCharts() {
-        // 稳定性图表
-        this.chartManager.initStabilityChart('stabilityChart');
-        
-        // 趋势图表
-        const trendData = DataGenerator.generateTrendData('day');
-        this.chartManager.initBandwidthChart('bandwidthChart', trendData);
-        this.chartManager.initLatencyChart('latencyChart', trendData);
-        this.chartManager.initPacketLossChart('packetLossChart', trendData);
-    }
-}
-
-// ============================================
-// 主应用类
-// ============================================
-class NetworkDashboard {
-    constructor() {
-        this.uiUpdater = new UIUpdater();
+        this.ontTrendChart = null;
+        this.ontCurrentMetric = 'web';
+        this.router1TrendChart = null;
+        this.router1CurrentMetric = 'web';
+        this.router2TrendChart = null;
+        this.router2CurrentMetric = 'web';
+        this.communityCompareChart = null;
         this.floorPlan = null;
-        this.timeInterval = null;
-        this.uptimeInterval = null;
-        this.devices = [];
     }
-    
+
+    showLoading() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) {
+            overlay.classList.add('visible');
+        }
+    }
+
+    hideLoading() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) {
+            overlay.classList.remove('visible');
+        }
+    }
+
     async init() {
-        // 显示加载动画
+        try {
+            await LibLoader.load();
+            this.initTime();
+            this.initOntTrendChart();
+            this.initCommunityCompareChart();
+            this.initRouter1TrendChart();
+            this.initRouter2TrendChart();
+            this.floorPlan3d = new FloorPlan3D('floorPlan3d');
+            this.initEventListeners();
+            await this.fetchData();
+            this.startAutoRefresh();
+        } catch (e) {
+            console.error('初始化失败:', e);
+        }
+    }
+
+    initTime() {
+        const updateTime = () => {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-CN', { hour12: false });
+            document.getElementById('currentTime').textContent = timeStr;
+        };
+        updateTime();
+        setInterval(updateTime, 1000);
+    }
+
+    initRouter1TrendChart() {
+        const chartDom = document.getElementById('router1TrendChart');
+        if (!chartDom) return;
+
+        this.router1TrendChart = echarts.init(chartDom);
+        const option = {
+            grid: {
+                left: 40,
+                right: 15,
+                top: 20,
+                bottom: 25
+            },
+            tooltip: {
+                trigger: 'axis',
+                backgroundColor: 'rgba(13, 20, 36, 0.95)',
+                borderColor: '#00d4ff',
+                textStyle: {
+                    color: '#fff'
+                }
+            },
+            xAxis: {
+                type: 'category',
+                data: [],
+                axisLine: {
+                    lineStyle: { color: 'rgba(0, 212, 255, 0.2)' }
+                },
+                axisLabel: {
+                    color: 'rgba(255, 255, 255, 0.5)',
+                    fontSize: 9
+                }
+            },
+            yAxis: {
+                type: 'value',
+                min: 0,
+                max: 100,
+                axisLine: {
+                    lineStyle: { color: 'rgba(0, 212, 255, 0.2)' }
+                },
+                axisLabel: {
+                    color: 'rgba(255, 255, 255, 0.5)',
+                    fontSize: 9
+                },
+                splitLine: {
+                    lineStyle: { color: 'rgba(0, 212, 255, 0.1)' }
+                }
+            },
+            series: [
+                {
+                    name: '总感知',
+                    type: 'line',
+                    data: [],
+                    smooth: true,
+                    symbol: 'circle',
+                    symbolSize: 5,
+                    lineStyle: {
+                        color: '#7b2cbf',
+                        width: 2
+                    },
+                    itemStyle: {
+                        color: '#7b2cbf'
+                    },
+                    areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: 'rgba(123, 44, 191, 0.3)' },
+                            { offset: 1, color: 'rgba(123, 44, 191, 0)' }
+                        ])
+                    }
+                }
+            ]
+        };
+        this.router1TrendChart.setOption(option);
+    }
+
+    initRouter2TrendChart() {
+        const chartDom = document.getElementById('router2TrendChart');
+        if (!chartDom) return;
+
+        this.router2TrendChart = echarts.init(chartDom);
+        const option = {
+            grid: {
+                left: 40,
+                right: 15,
+                top: 20,
+                bottom: 25
+            },
+            tooltip: {
+                trigger: 'axis',
+                backgroundColor: 'rgba(13, 20, 36, 0.95)',
+                borderColor: '#00d4ff',
+                textStyle: {
+                    color: '#fff'
+                }
+            },
+            xAxis: {
+                type: 'category',
+                data: [],
+                axisLine: {
+                    lineStyle: { color: 'rgba(0, 212, 255, 0.2)' }
+                },
+                axisLabel: {
+                    color: 'rgba(255, 255, 255, 0.5)',
+                    fontSize: 9
+                }
+            },
+            yAxis: {
+                type: 'value',
+                min: 0,
+                max: 100,
+                axisLine: {
+                    lineStyle: { color: 'rgba(0, 212, 255, 0.2)' }
+                },
+                axisLabel: {
+                    color: 'rgba(255, 255, 255, 0.5)',
+                    fontSize: 9
+                },
+                splitLine: {
+                    lineStyle: { color: 'rgba(0, 212, 255, 0.1)' }
+                }
+            },
+            series: [
+                {
+                    name: '总感知',
+                    type: 'line',
+                    data: [],
+                    smooth: true,
+                    symbol: 'circle',
+                    symbolSize: 5,
+                    lineStyle: {
+                        color: '#ff6b6b',
+                        width: 2
+                    },
+                    itemStyle: {
+                        color: '#ff6b6b'
+                    },
+                    areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: 'rgba(255, 107, 107, 0.3)' },
+                            { offset: 1, color: 'rgba(255, 107, 107, 0)' }
+                        ])
+                    }
+                }
+            ]
+        };
+        this.router2TrendChart.setOption(option);
+    }
+
+    initOntTrendChart() {
+        const chartDom = document.getElementById('ontTrendChart');
+        if (!chartDom) return;
+
+        this.ontTrendChart = echarts.init(chartDom);
+        const option = {
+            grid: {
+                left: 40,
+                right: 15,
+                top: 20,
+                bottom: 25
+            },
+            tooltip: {
+                trigger: 'axis',
+                backgroundColor: 'rgba(13, 20, 36, 0.95)',
+                borderColor: '#00d4ff',
+                textStyle: {
+                    color: '#fff'
+                }
+            },
+            xAxis: {
+                type: 'category',
+                data: [],
+                axisLine: {
+                    lineStyle: { color: 'rgba(0, 212, 255, 0.2)' }
+                },
+                axisLabel: {
+                    color: 'rgba(255, 255, 255, 0.5)',
+                    fontSize: 9
+                }
+            },
+            yAxis: {
+                type: 'value',
+                min: 0,
+                max: 100,
+                axisLine: {
+                    lineStyle: { color: 'rgba(0, 212, 255, 0.2)' }
+                },
+                axisLabel: {
+                    color: 'rgba(255, 255, 255, 0.5)',
+                    fontSize: 9
+                },
+                splitLine: {
+                    lineStyle: { color: 'rgba(0, 212, 255, 0.1)' }
+                }
+            },
+            series: [
+                {
+                    name: '评分',
+                    type: 'line',
+                    data: [],
+                    smooth: true,
+                    symbol: 'circle',
+                    symbolSize: 5,
+                    lineStyle: {
+                        color: '#00d4ff',
+                        width: 2
+                    },
+                    itemStyle: {
+                        color: '#00d4ff'
+                    },
+                    areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: 'rgba(0, 212, 255, 0.3)' },
+                            { offset: 1, color: 'rgba(0, 212, 255, 0)' }
+                        ])
+                    }
+                }
+            ]
+        };
+        this.ontTrendChart.setOption(option);
+    }
+
+    initCommunityCompareChart() {
+        const chartDom = document.getElementById('communityCompareChart');
+        if (!chartDom) return;
+
+        this.communityCompareChart = echarts.init(chartDom);
+        const option = {
+            grid: {
+                left: 10,
+                right: 10,
+                top: 15,
+                bottom: 25
+            },
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: {
+                    type: 'shadow'
+                },
+                backgroundColor: 'rgba(13, 20, 36, 0.95)',
+                borderColor: '#00d4ff',
+                textStyle: {
+                    color: '#fff'
+                },
+                formatter: function(params) {
+                    let result = '<div style="font-weight:700;margin-bottom:6px;color:#00d4ff">' + params[0].axisValue + '</div>';
+                    params.forEach(item => {
+                        result += '<div style="display:flex;justify-content:space-between;gap:20px;margin-top:4px">';
+                        result += '<span>' + item.marker + ' ' + item.seriesName + '</span>';
+                        result += '<span style="font-weight:600">' + item.value + '分</span>';
+                        result += '</div>';
+                    });
+                    return result;
+                }
+            },
+            xAxis: {
+                type: 'category',
+                data: ['光猫', '小区平均'],
+                axisLine: {
+                    lineStyle: { color: 'rgba(0, 212, 255, 0.2)' }
+                },
+                axisLabel: {
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    fontSize: 11
+                },
+                axisTick: {
+                    show: false
+                }
+            },
+            yAxis: {
+                type: 'value',
+                min: 0,
+                max: 100,
+                axisLine: { show: false },
+                axisLabel: { show: false },
+                splitLine: {
+                    lineStyle: { color: 'rgba(0, 212, 255, 0.05)' }
+                }
+            },
+            series: [
+                {
+                    name: '感知分值',
+                    type: 'bar',
+                    barWidth: '40%',
+                    data: [],
+                    itemStyle: {
+                        borderRadius: [6, 6, 0, 0]
+                    },
+                    label: {
+                        show: true,
+                        position: 'top',
+                        color: '#fff',
+                        fontSize: 13,
+                        fontWeight: 700,
+                        fontFamily: 'var(--font-display)',
+                        formatter: '{c}分'
+                    },
+                    emphasis: {
+                        itemStyle: {
+                            shadowBlur: 15,
+                            shadowColor: 'rgba(0, 212, 255, 0.5)'
+                        }
+                    }
+                }
+            ]
+        };
+        this.communityCompareChart.setOption(option);
+    }
+
+    async fetchData() {
         this.showLoading();
-        
-        // 模拟加载进度
-        await this.simulateLoading();
-        
-        // 初始化3D户型图
-        this.floorPlan = new FloorPlan3D('floorPlan3d');
-        
-        // 初始化图表
-        this.uiUpdater.initCharts();
+        try {
+            const ontResponse = await fetch('http://chinaqoe.net/api/hreport_gm/getqoe_month?useruid=GZ1000010462590');
+            const ontResult = await ontResponse.json();
 
-        // 初始化事件监听
-        this.initEventListeners();
+            if (ontResult.code === 1) {
+                this.parseOntData(ontResult);
+            }
+        } catch (e) {
+            console.error('获取光猫数据失败:', e);
+        }
 
-        // 初始数据加载
-        this.devices = DataGenerator.generateDeviceList();
-        this.uiUpdater.updateDeviceList(this.devices);
+        try {
+            const router1InfoRes = await fetch('http://chinaqoe.net/api/hreport_ly/getinfo?useruid=PKKQGW');
+            const router1Info = await router1InfoRes.json();
+            if (router1Info.code === 1) {
+                this.parseRouter1Info(router1Info.result);
+            }
+        } catch (e) {
+            console.error('获取感知路由PKKQGW信息失败:', e);
+        }
 
-        // 光猫数据
-        const ontData = DataGenerator.generateONTData();
-        this.uiUpdater.updateONT(ontData);
+        try {
+            const [httpRes, videoRes, gameRes, speedRes] = await Promise.all([
+                fetch('http://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=PKKQGW'),
+                fetch('http://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=PKKQGW'),
+                fetch('http://chinaqoe.net/api/hreport_ly/getgame_day?useruid=PKKQGW'),
+                fetch('http://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=PKKQGW')
+            ]);
 
-        // 路由器数据
-        const routerData = DataGenerator.generateRouterData();
-        this.uiUpdater.updateRouter(routerData);
+            const httpData = await httpRes.json();
+            const videoData = await videoRes.json();
+            const gameData = await gameRes.json();
+            const speedData = await speedRes.json();
 
-        // 趋势数据
-        const trendData = DataGenerator.generateTrendData('day');
-        this.uiUpdater.updateTrendCharts(trendData);
+            this.parseRouter1Trends({ http: httpData, video: videoData, game: gameData, speed: speedData });
+        } catch (e) {
+            console.error('获取感知路由PKKQGW趋势数据失败:', e);
+        }
 
-        // 质量评分
-        this.uiUpdater.updateQualityScore(DataGenerator.randomInt(85, 99));
+        try {
+            const router2InfoRes = await fetch('http://chinaqoe.net/api/hreport_ly/getinfo?useruid=PKKQRW');
+            const router2Info = await router2InfoRes.json();
+            if (router2Info.code === 1) {
+                this.parseRouter2Info(router2Info.result);
+            }
+        } catch (e) {
+            console.error('获取感知路由PKKQRW信息失败:', e);
+        }
 
-        this.refreshData();
+        try {
+            const [httpRes2, videoRes2, gameRes2, speedRes2] = await Promise.all([
+                fetch('http://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=PKKQRW'),
+                fetch('http://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=PKKQRW'),
+                fetch('http://chinaqoe.net/api/hreport_ly/getgame_day?useruid=PKKQRW'),
+                fetch('http://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=PKKQRW')
+            ]);
 
-        // 启动定时更新
-        this.startAutoRefresh();
-        
-        // 隐藏加载动画
+            const httpData2 = await httpRes2.json();
+            const videoData2 = await videoRes2.json();
+            const gameData2 = await gameRes2.json();
+            const speedData2 = await speedRes2.json();
+
+            this.parseRouter2Trends({ http: httpData2, video: videoData2, game: gameData2, speed: speedData2 });
+        } catch (e) {
+            console.error('获取感知路由PKKQRW趋势数据失败:', e);
+        }
+
+        this.generateMockDevices();
+        this.updateUI();
+        this.updateOntTrendChart();
+        this.updateCommunityCompareChart();
+        this.updateRouter1TrendChart();
+        this.updateRouter2TrendChart();
+        document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false });
         this.hideLoading();
     }
-    
-    showLoading() {
-        const loadingScreen = document.getElementById('loadingScreen');
-        loadingScreen.classList.remove('hidden');
-    }
-    
-    hideLoading() {
-        const loadingScreen = document.getElementById('loadingScreen');
-        loadingScreen.classList.add('hidden');
-    }
-    
-    async simulateLoading() {
-        const progressBar = document.getElementById('loadingProgress');
-        const steps = 10;
-        
-        for (let i = 0; i <= steps; i++) {
-            const progress = (i / steps) * 100;
-            progressBar.style.width = `${progress}%`;
-            await this.delay(200);
+
+    parseRouter1Info(result) {
+        if (!this.data.router1) {
+            this.data.router1 = {};
         }
+        this.data.router1.basicInfo = {
+            status: result.onlinestatus === 'online' ? '在线' : '离线',
+            operator: result.isp_man || '-'
+        };
     }
-    
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-    
-    initEventListeners() {
-        // 时间范围选择
-        document.querySelectorAll('.range-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                AppState.currentTimeRange = e.target.dataset.range;
-                this.updateTrendData();
+
+    parseRouter1Trends(data) {
+        if (!this.data.router1) {
+            this.data.router1 = {};
+        }
+
+        const http = data.http?.code === 1 ? data.http : null;
+        const video = data.video?.code === 1 ? data.video : null;
+        const game = data.game?.code === 1 ? data.game : null;
+        const speed = data.speed?.code === 1 ? data.speed : null;
+
+        const buildMetricMap = (apiData) => {
+            const map = new Map();
+            if (!apiData) return map;
+            apiData.hour?.forEach((time, i) => {
+                map.set(time, apiData.qoe[i]);
+            });
+            return map;
+        };
+
+        const httpMap = buildMetricMap(http);
+        const videoMap = buildMetricMap(video);
+        const gameMap = buildMetricMap(game);
+        const speedMap = buildMetricMap(speed);
+
+        const allTimes = new Set([...httpMap.keys(), ...videoMap.keys(), ...gameMap.keys(), ...speedMap.keys()]);
+        const sortedTimes = [...allTimes].sort();
+
+        const history = [];
+        sortedTimes.forEach(time => {
+            const webScore = httpMap.get(time);
+            const videoScore = videoMap.get(time);
+            const gameScore = gameMap.get(time);
+            const downloadScore = speedMap.get(time);
+
+            history.push({
+                record_time: time,
+                web_score: webScore !== undefined ? Math.round(webScore) : null,
+                video_score: videoScore !== undefined ? Math.round(videoScore) : null,
+                game_score: gameScore !== undefined ? Math.round(gameScore) : null,
+                download_score: downloadScore !== undefined ? Math.round(downloadScore) : null
             });
         });
-        
-        // 3D控制按钮
-        document.getElementById('rotateBtn').addEventListener('click', (e) => {
-            const isRotating = this.floorPlan.toggleAutoRotate();
-            e.currentTarget.classList.toggle('active', isRotating);
-        });
-        
-        document.getElementById('resetBtn').addEventListener('click', () => {
-            this.floorPlan.resetView();
-            document.getElementById('rotateBtn').classList.remove('active');
-        });
-        
-        document.getElementById('heatmapBtn').addEventListener('click', (e) => {
-            this.floorPlan.showHeatmap();
-            document.querySelectorAll('.control-btn').forEach(b => b.classList.remove('active'));
-            e.currentTarget.classList.add('active');
-        });
-        
-        document.getElementById('deviceBtn').addEventListener('click', (e) => {
-            this.floorPlan.showDevices();
-            document.querySelectorAll('.control-btn').forEach(b => b.classList.remove('active'));
-            e.currentTarget.classList.add('active');
-        });
-        
-        // 窗口大小变化
-        window.addEventListener('resize', () => {
-            this.uiUpdater.chartManager.resizeAll();
-        });
-    }
-    
-    refreshData() {
-        // 保留时间更新（底部状态栏）
-        this.uiUpdater.updateTime();
-        this.uiUpdater.updateUptime();
-    }
-    
-    updateTrendData() {
-        const trendData = DataGenerator.generateTrendData(AppState.currentTimeRange);
-        this.uiUpdater.updateTrendCharts(trendData);
-    }
-    
-    startAutoRefresh() {
-        // 时间更新
-        this.timeInterval = setInterval(() => {
-            this.uiUpdater.updateTime();
-        }, 1000);
 
-        // 运行时长更新
-        this.uptimeInterval = setInterval(() => {
-            this.uiUpdater.updateUptime();
-        }, 1000);
-
-        // 初始化时间
-        this.uiUpdater.updateTime();
-        
-        // 初始化公网IP
-        this.uiUpdater.updatePublicIP();
+        this.data.router1.scoreHistory = history;
     }
-    
-    destroy() {
-        if (this.timeInterval) clearInterval(this.timeInterval);
-        if (this.uptimeInterval) clearInterval(this.uptimeInterval);
-        
-        if (this.floorPlan) {
-            this.floorPlan.destroy();
+
+    parseRouter2Info(result) {
+        if (!this.data.router2) {
+            this.data.router2 = {};
         }
-        
-        this.uiUpdater.chartManager.destroyAll();
+        this.data.router2.basicInfo = {
+            status: result.onlinestatus === 'online' ? '在线' : '离线',
+            operator: result.isp_man || '-'
+        };
+    }
+
+    parseRouter2Trends(data) {
+        if (!this.data.router2) {
+            this.data.router2 = {};
+        }
+
+        const http = data.http?.code === 1 ? data.http : null;
+        const video = data.video?.code === 1 ? data.video : null;
+        const game = data.game?.code === 1 ? data.game : null;
+        const speed = data.speed?.code === 1 ? data.speed : null;
+
+        const buildMetricMap = (apiData) => {
+            const map = new Map();
+            if (!apiData) return map;
+            apiData.hour?.forEach((time, i) => {
+                map.set(time, apiData.qoe[i]);
+            });
+            return map;
+        };
+
+        const httpMap = buildMetricMap(http);
+        const videoMap = buildMetricMap(video);
+        const gameMap = buildMetricMap(game);
+        const speedMap = buildMetricMap(speed);
+
+        const allTimes = new Set([...httpMap.keys(), ...videoMap.keys(), ...gameMap.keys(), ...speedMap.keys()]);
+        const sortedTimes = [...allTimes].sort();
+
+        const history = [];
+        sortedTimes.forEach(time => {
+            const webScore = httpMap.get(time);
+            const videoScore = videoMap.get(time);
+            const gameScore = gameMap.get(time);
+            const downloadScore = speedMap.get(time);
+
+            history.push({
+                record_time: time,
+                web_score: webScore !== undefined ? Math.round(webScore) : null,
+                video_score: videoScore !== undefined ? Math.round(videoScore) : null,
+                game_score: gameScore !== undefined ? Math.round(gameScore) : null,
+                download_score: downloadScore !== undefined ? Math.round(downloadScore) : null
+            });
+        });
+
+        this.data.router2.scoreHistory = history;
+    }
+
+    parseOntData(result) {
+        if (!this.data.ont) {
+            this.data.ont = {};
+        }
+
+        this.data.ont.basicInfo = {
+            account: result.kd_id || '-',
+            vendor: result.vendor || '-',
+            model: result.model || '-',
+            bandwidth: result.bandwidth ? `${result.bandwidth}` : '-',
+            community: this.filterCommunityName(result.onu_name)
+        };
+
+        this.data.ont.score = {
+            total_score: result.rage_qoe ? Math.round(result.rage_qoe) : '-',
+            web_score: result.rage_http ? Math.round(result.rage_http) : '-',
+            video_score: result.rage_video ? Math.round(result.rage_video) : '-',
+            ping_score: result.rage_ping ? Math.round(result.rage_ping) : '-',
+            game_score: result.rage_game ? Math.round(result.rage_game) : '-'
+        };
+
+        this.data.ont.communityScore = result.rage_olt_qoe ? Math.round(result.rage_olt_qoe) : '-';
+
+        if (result.time && result.avg) {
+            this.data.ont.scoreHistory = result.time.map((time, i) => ({
+                record_time: `${time.substring(0, 4)}-${time.substring(4, 6)}`,
+                total_score: Math.round(result.avg[i]),
+                web_score: Math.round(result.http[i]),
+                video_score: Math.round(result.video[i]),
+                ping_score: Math.round(result.ping[i]),
+                game_score: Math.round(result.game[i])
+            }));
+        }
+    }
+
+    filterCommunityName(name) {
+        if (!name) return '-';
+        let filtered = name;
+        const chineseRegex = /[\u4e00-\u9fa5]/;
+        const firstChineseIndex = [...filtered].findIndex(char => chineseRegex.test(char));
+        if (firstChineseIndex > 0) {
+            filtered = filtered.substring(firstChineseIndex);
+        }
+        const match = filtered.match(/^([\u4e00-\u9fa5]+)/);
+        return match ? match[1] : filtered;
+    }
+
+    generateMockDevices() {
+        if (!this.data.ont) {
+            this.data.ont = {};
+        }
+
+        if (!this.data.ont.basicInfo) {
+            this.data.ont.basicInfo = {
+                account: 'JD12345678',
+                vendor: '华为',
+                model: 'HN8346X6',
+                bandwidth: '1000',
+                community: '华润天合尚悦'
+            };
+        }
+
+        if (!this.data.ont.score) {
+            this.data.ont.score = {
+                total_score: 89,
+                web_score: 84,
+                video_score: 98,
+                ping_score: 95,
+                game_score: 98
+            };
+        }
+
+        if (!this.data.ont.scoreHistory) {
+            const mockHistory = [];
+            const times = ['202504', '202505', '202506', '202507', '202508', '202509', '202510', '202511', '202512', '202601', '202602', '202603'];
+            const avgs = [79, 81, 79, 78, 94, 95, 94, 94, 94, 94, 94, 93];
+            const https = [72, 74, 71, 71, 89, 91, 90, 89, 89, 89, 90, 88];
+            const pings = [87, 88, 87, 85, 98, 99, 98, 99, 98, 99, 98, 98];
+            const videos = [100, 97, 100, 100, 94, 100, 93, 98, 98, 98, 98, 96];
+            const games = [97, 97, 96, 96, 97, 98, 98, 98, 98, 98, 98, 98];
+
+            times.forEach((time, i) => {
+                mockHistory.push({
+                    record_time: `${time.substring(0, 4)}-${time.substring(4, 6)}`,
+                    total_score: avgs[i],
+                    web_score: https[i],
+                    video_score: videos[i],
+                    ping_score: pings[i],
+                    game_score: games[i]
+                });
+            });
+            this.data.ont.scoreHistory = mockHistory;
+        }
+
+        const ontDevices = [
+            { name: 'FTTR主设备', type: 'fttr', status: 'online', signal: -35, speed: 1000 },
+            { name: '客厅电视', type: 'tv', status: 'online', signal: -42, speed: 500 },
+            { name: 'iPhone 15', type: 'mobile', status: 'online', signal: -55, speed: 800 },
+            { name: 'iPad Pro', type: 'mobile', status: 'online', signal: -48, speed: 600 },
+            { name: '小米音箱', type: 'iot', status: 'online', signal: -60, speed: 100 },
+            { name: '智能灯泡', type: 'iot', status: 'offline', signal: null, speed: null }
+        ];
+
+        const routerDevices = [
+            { name: '感知路由', type: 'router', status: 'online', signal: -30, speed: 1200 },
+            { name: '小米电视', type: 'tv', status: 'online', signal: -45, speed: 600 },
+            { name: 'OPPO Find', type: 'mobile', status: 'online', signal: -52, speed: 900 },
+            { name: '海康摄像头', type: 'camera', status: 'online', signal: -58, speed: 200 },
+            { name: '打印机', type: 'printer', status: 'offline', signal: null, speed: null },
+            { name: '游戏主机', type: 'other', status: 'online', signal: -40, speed: 1000 }
+        ];
+
+        if (!this.data.router) {
+            this.data.router = {};
+        }
+
+        this.data.ont.devices = ontDevices;
+        this.data.router.devices = routerDevices;
+
+        const generateScoreHistory = () => {
+            const history = [];
+            for (let i = 20; i >= 0; i--) {
+                const time = new Date();
+                time.setMinutes(time.getMinutes() - i * 3);
+                history.push({
+                    record_time: time.toISOString(),
+                    total_score: Math.floor(Math.random() * 20) + 80,
+                    web_score: Math.floor(Math.random() * 15) + 80,
+                    video_score: Math.floor(Math.random() * 20) + 78,
+                    game_score: Math.floor(Math.random() * 25) + 73,
+                    download_score: Math.floor(Math.random() * 18) + 80
+                });
+            }
+            return history;
+        };
+
+        if (!this.data.router.scoreHistory) {
+            this.data.router.scoreHistory = generateScoreHistory();
+        }
+        if (!this.data.router1) {
+            this.data.router1 = {
+                basicInfo: {
+                    code: 'PKKQGW-20240001',
+                    status: '在线',
+                    operator: '中国电信'
+                },
+                scoreHistory: generateScoreHistory()
+            };
+        }
+        if (!this.data.router2) {
+            this.data.router2 = {
+                basicInfo: {
+                    code: 'PKKQRW-20240002',
+                    status: '在线',
+                    operator: '中国移动'
+                },
+                scoreHistory: generateScoreHistory()
+            };
+        }
+
+        if (!this.data.ont.basicInfo) {
+            this.data.ont.basicInfo = {
+                account: 'JD12345678',
+                bandwidth: '1000',
+                vendor: '华为',
+                model: 'HN8346X6'
+            };
+        }
+        if (!this.data.ont.score) {
+            this.data.ont.score = {
+                total_score: 92,
+                web_score: 95,
+                video_score: 90,
+                ping_score: 88,
+                game_score: 94
+            };
+        }
+        if (!this.data.ont.speed) {
+            this.data.ont.speed = {
+                avg_speed: 856,
+                max_speed: 987
+            };
+        }
+
+        if (!this.data.router.basicInfo) {
+            this.data.router.basicInfo = {
+                name: '小米Router',
+                model: 'AX9000',
+                status: '在线'
+            };
+        }
+        if (!this.data.router.deviceStatus) {
+            this.data.router.deviceStatus = {
+                temperature: 42,
+                cpu_usage: 35,
+                memory_usage: 55
+            };
+        }
+        if (!this.data.router.score) {
+            this.data.router.score = {
+                total_score: 89,
+                web_score: 92,
+                video_score: 87,
+                game_score: 85,
+                download_score: 91
+            };
+        }
+    }
+
+    updateUI() {
+        this.updateONTCard();
+        this.updateRouter1Card();
+        this.updateRouter2Card();
+    }
+
+    updateONTCard() {
+        const ont = this.data.ont;
+        if (!ont) return;
+
+        document.getElementById('ontAccount').textContent = this.maskAccount(ont.basicInfo.account) || '-';
+        document.getElementById('ontVendor').textContent = ont.basicInfo.vendor || '-';
+        document.getElementById('ontModel').textContent = ont.basicInfo.model || '-';
+        document.getElementById('ontBandwidth').textContent = ont.basicInfo.bandwidth ? `${ont.basicInfo.bandwidth} Mbps` : '-';
+
+        const score = ont.score;
+        if (score) {
+            document.getElementById('ontTotalScore').textContent = score.total_score || '-';
+            document.getElementById('ontWebScore').textContent = score.web_score || '-';
+            document.getElementById('ontVideoScore').textContent = score.video_score || '-';
+            document.getElementById('ontPingScore').textContent = score.ping_score || '-';
+            document.getElementById('ontGameScore').textContent = score.game_score || '-';
+        }
+
+        const compareTitle = document.getElementById('compareTitle');
+        if (compareTitle && ont.basicInfo.community) {
+            compareTitle.textContent = ont.basicInfo.community;
+        }
+    }
+
+    maskAccount(account) {
+        if (!account || account.length <= 8) return account;
+        return account.slice(0, 4) + '*'.repeat(account.length - 8) + account.slice(-4);
+    }
+
+    updateCommunityCompareChart() {
+        if (!this.communityCompareChart) return;
+
+        const ontScore = this.data.ont?.score?.total_score;
+        const communityScore = this.data.ont?.communityScore;
+
+        const ontValue = typeof ontScore === 'number' ? ontScore : 0;
+        const communityValue = typeof communityScore === 'number' ? communityScore : 0;
+
+        const colors = [
+            new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: '#00d4ff' },
+                { offset: 1, color: '#0099cc' }
+            ]),
+            new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: '#7b2cbf' },
+                { offset: 1, color: '#5a189a' }
+            ])
+        ];
+
+        this.communityCompareChart.setOption({
+            series: [{
+                data: [
+                    {
+                        value: ontValue,
+                        itemStyle: { color: colors[0] }
+                    },
+                    {
+                        value: communityValue,
+                        itemStyle: { color: colors[1] }
+                    }
+                ]
+            }]
+        });
+    }
+
+    updateRouter1Card() {
+        const router1 = this.data.router1;
+        if (!router1) return;
+
+        document.getElementById('router1Status').textContent = router1.basicInfo.status || '-';
+        document.getElementById('router1Operator').textContent = router1.basicInfo.operator || '-';
+
+        this.updateRouter1TrendChart();
+    }
+
+    updateRouter2Card() {
+        const router2 = this.data.router2;
+        if (!router2) return;
+
+        document.getElementById('router2Status').textContent = router2.basicInfo.status || '-';
+        document.getElementById('router2Operator').textContent = router2.basicInfo.operator || '-';
+
+        this.updateRouter2TrendChart();
+    }
+
+    updateStatusClass(statusId, valueId, value, threshold, isNegative = false) {
+        const statusEl = document.getElementById(statusId);
+        const valueEl = document.getElementById(valueId);
+        if (!statusEl || !valueEl) return;
+
+        statusEl.classList.remove('warning', 'danger');
+        valueEl.style.color = '';
+
+        if (isNegative) {
+            if (value < threshold) {
+                statusEl.classList.add('danger');
+                valueEl.style.color = '#ff006e';
+            }
+        } else {
+            if (value > threshold) {
+                statusEl.classList.add(value > threshold * 1.2 ? 'danger' : 'warning');
+                valueEl.style.color = value > threshold * 1.2 ? '#ff006e' : '#fee440';
+            }
+        }
+    }
+
+    updateScoreRing(ringId, valueId, score) {
+        const ring = document.getElementById(ringId);
+        const value = document.getElementById(valueId);
+        if (!ring || !value) return;
+
+        const circumference = 2 * Math.PI * 85;
+        const offset = circumference - (circumference * score / 100);
+
+        ring.style.strokeDashoffset = offset;
+        value.textContent = score || '-';
+
+        ring.classList.remove('warning', 'danger');
+        if (score < 60) {
+            ring.classList.add('danger');
+        } else if (score < 80) {
+            ring.classList.add('warning');
+        }
+    }
+
+    updateRouter1TrendChart() {
+        if (!this.router1TrendChart) return;
+
+        const routerHistory = this.data.router1?.scoreHistory || [];
+        const labels = routerHistory.map(h => this.formatTime(h.record_time));
+
+        let metricData;
+        switch (this.router1CurrentMetric) {
+            case 'video':
+                metricData = routerHistory.map(h => h.video_score);
+                break;
+            case 'game':
+                metricData = routerHistory.map(h => h.game_score);
+                break;
+            case 'download':
+                metricData = routerHistory.map(h => h.download_score);
+                break;
+            default:
+                metricData = routerHistory.map(h => h.web_score);
+        }
+
+        this.router1TrendChart.setOption({
+            xAxis: { data: labels },
+            series: [
+                { data: metricData }
+            ]
+        });
+    }
+
+    updateRouter2TrendChart() {
+        if (!this.router2TrendChart) return;
+
+        const routerHistory = this.data.router2?.scoreHistory || [];
+        const labels = routerHistory.map(h => this.formatTime(h.record_time));
+
+        let metricData;
+        switch (this.router2CurrentMetric) {
+            case 'video':
+                metricData = routerHistory.map(h => h.video_score);
+                break;
+            case 'game':
+                metricData = routerHistory.map(h => h.game_score);
+                break;
+            case 'download':
+                metricData = routerHistory.map(h => h.download_score);
+                break;
+            default:
+                metricData = routerHistory.map(h => h.web_score);
+        }
+
+        this.router2TrendChart.setOption({
+            xAxis: { data: labels },
+            series: [
+                { data: metricData }
+            ]
+        });
+    }
+
+    updateOntTrendChart() {
+        if (!this.ontTrendChart) return;
+
+        const ontHistory = this.data.ont?.scoreHistory || [];
+        const labels = ontHistory.map(h => this.formatTime(h.record_time));
+
+        let metricData;
+        switch (this.ontCurrentMetric) {
+            case 'video':
+                metricData = ontHistory.map(h => h.video_score);
+                break;
+            case 'game':
+                metricData = ontHistory.map(h => h.game_score);
+                break;
+            case 'download':
+                metricData = ontHistory.map(h => h.download_score);
+                break;
+            default:
+                metricData = ontHistory.map(h => h.web_score);
+        }
+
+        this.ontTrendChart.setOption({
+            xAxis: { data: labels },
+            series: [
+                { data: metricData }
+            ]
+        });
+    }
+
+    formatTime(timeStr) {
+        if (!timeStr) return '';
+        if (/^\d{2}-\d{2}\s\d{2}$/.test(timeStr)) {
+            return timeStr;
+        }
+        if (/^\d{4}-\d{2}$/.test(timeStr)) {
+            return timeStr;
+        }
+        const date = new Date(timeStr);
+        if (isNaN(date.getTime())) return timeStr;
+        return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    }
+
+    initEventListeners() {
+        document.querySelectorAll('#ontCard .inline-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('#ontCard .inline-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.ontCurrentMetric = e.target.dataset.metric;
+                this.updateOntTrendChart();
+            });
+        });
+
+        document.querySelectorAll('#router1Card .router-selector .inline-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('#router1Card .router-selector .inline-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.router1CurrentMetric = e.target.dataset.metric;
+                this.updateRouter1TrendChart();
+            });
+        });
+
+        document.querySelectorAll('#router2Card .router-selector .inline-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('#router2Card .router-selector .inline-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.router2CurrentMetric = e.target.dataset.metric;
+                this.updateRouter2TrendChart();
+            });
+        });
+    }
+
+    startAutoRefresh() {
+        const scheduleNextHour = () => {
+            const now = new Date();
+            const nextHour = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + 1, 0, 0, 0);
+            const delay = nextHour - now;
+
+            setTimeout(() => {
+                this.fetchData();
+                scheduleNextHour();
+            }, delay);
+        };
+
+        scheduleNextHour();
+    }
+
+    handleResize() {
+        if (this.ontTrendChart) this.ontTrendChart.resize();
+        if (this.communityCompareChart) this.communityCompareChart.resize();
+        if (this.router1TrendChart) this.router1TrendChart.resize();
+        if (this.router2TrendChart) this.router2TrendChart.resize();
     }
 }
 
-// ============================================
-// 启动应用
-// ============================================
 document.addEventListener('DOMContentLoaded', () => {
-    const dashboard = new NetworkDashboard();
-    dashboard.init();
-    
-    // 暴露到全局以便调试
-    window.networkDashboard = dashboard;
-});
+    const monitor = new NetworkMonitor();
+    monitor.init();
 
-// 页面卸载时清理
-window.addEventListener('beforeunload', () => {
-    if (window.networkDashboard) {
-        window.networkDashboard.destroy();
-    }
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => monitor.handleResize(), 200);
+    });
 });
