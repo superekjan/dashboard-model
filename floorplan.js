@@ -224,11 +224,13 @@ class FloorPlan3D {
             // 左半部分 - 与中间客厅的分隔
             { pos: [-5, wallHeight / 2, 0], size: [wallThickness, wallHeight, 15] },
             // 右上卧室3 - 与客厅的分隔
-            { pos: [5, wallHeight / 2, -3.75], size: [wallThickness, wallHeight, 7.5] },
-            // 右上卧室3 - 与右下卧室的分隔
-            { pos: [10, wallHeight / 2, 0], size: [10, wallHeight, wallThickness] },
+            { pos: [5, wallHeight / 2, -4.5], size: [wallThickness, wallHeight, 6] },
+            // 右上卧室3 - 与走道的分隔
+            { pos: [10, wallHeight / 2, -1.5], size: [10, wallHeight, wallThickness] },
+            // 右下卧室4 - 与走道的分隔
+            { pos: [10, wallHeight / 2, 1.5], size: [10, wallHeight, wallThickness] },
             // 右下卧室4 - 与客厅的分隔
-            { pos: [5, wallHeight / 2, 3.75], size: [wallThickness, wallHeight, 7.5] }
+            { pos: [5, wallHeight / 2, 4.5], size: [wallThickness, wallHeight, 6] }
         ];
 
         innerWalls.forEach(wall => {
