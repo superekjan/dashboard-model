@@ -171,6 +171,7 @@ class FloorPlan3D {
         this.createWalls();
         this.createBeds();
         this.createSofaSet();
+        this.createBathroom();
         this.createDevices();
     }
 
@@ -267,6 +268,8 @@ class FloorPlan3D {
         this.createBed([-12.5, 0, -3.75], bedMaterial, mattressMaterial, pillowMaterial, 'west');
         // 左下卧室的小床 - 床头向西（左边）贴墙
         this.createBed([-12.5, 0, 3.75], bedMaterial, mattressMaterial, pillowMaterial, 'west');
+        // 右下卧室的小床 - 床头向东（右边）贴墙
+        this.createBed([12.5, 0, 3.75], bedMaterial, mattressMaterial, pillowMaterial, 'east');
     }
 
     createBed(position, bedMaterial, mattressMaterial, pillowMaterial, orientation = 'north') {
@@ -377,12 +380,117 @@ class FloorPlan3D {
         this.scene.add(sofaGroup);
     }
 
+    createBathroom() {
+        // 浴室物品材质
+        const bathtubMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            roughness: 0.2,
+            metalness: 0.8
+        });
+        const toiletMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            roughness: 0.2,
+            metalness: 0.8
+        });
+        const sinkMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            roughness: 0.2,
+            metalness: 0.8
+        });
+        const showerMaterial = new THREE.MeshStandardMaterial({
+            color: 0x87ceeb,
+            roughness: 0.1,
+            metalness: 0.9,
+            transparent: true,
+            opacity: 0.5
+        });
+
+        // 右上角浴室位置
+        const roomX = 7.5;
+        const roomZ = -4.5;
+
+        // 浴缸 - 靠墙放置
+        const bathtubGroup = new THREE.Group();
+        bathtubGroup.position.set(roomX - 2, 0, roomZ + 1);
+
+        const bathtubGeometry = new THREE.BoxGeometry(3, 0.8, 1.5);
+        const bathtub = new THREE.Mesh(bathtubGeometry, bathtubMaterial);
+        bathtub.position.y = 0.4;
+        bathtubGroup.add(bathtub);
+
+        const bathtubInnerGeometry = new THREE.BoxGeometry(2.8, 0.6, 1.3);
+        const bathtubInner = new THREE.Mesh(bathtubInnerGeometry, bathtubMaterial);
+        bathtubInner.position.y = 0.2;
+        bathtubGroup.add(bathtubInner);
+        this.scene.add(bathtubGroup);
+
+        // 马桶
+        const toiletGroup = new THREE.Group();
+        toiletGroup.position.set(roomX + 2, 0, roomZ + 1);
+
+        const toiletBaseGeometry = new THREE.BoxGeometry(0.8, 0.4, 1);
+        const toiletBase = new THREE.Mesh(toiletBaseGeometry, toiletMaterial);
+        toiletBase.position.y = 0.2;
+        toiletGroup.add(toiletBase);
+
+        const toiletSeatGeometry = new THREE.BoxGeometry(0.7, 0.1, 0.8);
+        const toiletSeat = new THREE.Mesh(toiletSeatGeometry, toiletMaterial);
+        toiletSeat.position.y = 0.45;
+        toiletGroup.add(toiletSeat);
+
+        const toiletTankGeometry = new THREE.BoxGeometry(0.6, 0.5, 0.3);
+        const toiletTank = new THREE.Mesh(toiletTankGeometry, toiletMaterial);
+        toiletTank.position.set(0, 0.65, -0.4);
+        toiletGroup.add(toiletTank);
+        this.scene.add(toiletGroup);
+
+        // 洗手台
+        const sinkGroup = new THREE.Group();
+        sinkGroup.position.set(roomX + 2, 0, roomZ - 1.5);
+
+        const sinkBaseGeometry = new THREE.BoxGeometry(1.2, 0.8, 0.5);
+        const sinkBase = new THREE.Mesh(sinkBaseGeometry, sinkMaterial);
+        sinkBase.position.y = 0.4;
+        sinkGroup.add(sinkBase);
+
+        const sinkTopGeometry = new THREE.BoxGeometry(1.3, 0.1, 0.6);
+        const sinkTop = new THREE.Mesh(sinkTopGeometry, sinkMaterial);
+        sinkTop.position.y = 0.85;
+        sinkGroup.add(sinkTop);
+
+        const basinGeometry = new THREE.CylinderGeometry(0.25, 0.3, 0.15, 16);
+        const basin = new THREE.Mesh(basinGeometry, sinkMaterial);
+        basin.position.set(0, 0.85, 0);
+        sinkGroup.add(basin);
+        this.scene.add(sinkGroup);
+
+        // 花洒
+        const showerGroup = new THREE.Group();
+        showerGroup.position.set(roomX - 1, 0, roomZ - 2);
+
+        const showerBaseGeometry = new THREE.CylinderGeometry(0.1, 0.1, 2, 16);
+        const showerBase = new THREE.Mesh(showerBaseGeometry, showerMaterial);
+        showerBase.position.y = 1;
+        showerGroup.add(showerBase);
+
+        const showerHeadGeometry = new THREE.CylinderGeometry(0.3, 0.1, 0.3, 16);
+        const showerHead = new THREE.Mesh(showerHeadGeometry, showerMaterial);
+        showerHead.position.y = 2;
+        showerGroup.add(showerHead);
+
+        const showerHeadTopGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.05, 16);
+        const showerHeadTop = new THREE.Mesh(showerHeadTopGeometry, showerMaterial);
+        showerHeadTop.position.y = 2.15;
+        showerGroup.add(showerHeadTop);
+        this.scene.add(showerGroup);
+    }
+
     createDevices() {
         const deviceData = [
             { pos: [-7, 0.5, -3.75], color: 0x7b2cbf, name: '路由1', signal: 88 },
             { pos: [-7, 0.5, 3.75], color: 0x7b2cbf, name: '路由2', signal: 82 },
             { pos: [0, 0.5, 0], color: 0xff6b6b, name: '电视', signal: 70 },
-            { pos: [12, 0.5, 3.75], color: 0x00d4ff, name: '光猫', signal: 95 }
+            { pos: [7, 0.5, 3.75], color: 0x00d4ff, name: '光猫', signal: 95 }
         ];
 
         deviceData.forEach(device => {
