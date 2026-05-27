@@ -267,8 +267,8 @@ class FloorPlan3D {
         this.createBed([-12.5, 0, -3.75], bedMaterial, mattressMaterial, pillowMaterial, 'west');
         // 左下卧室的小床 - 床头向西（左边）贴墙
         this.createBed([-12.5, 0, 3.75], bedMaterial, mattressMaterial, pillowMaterial, 'west');
-        // 右下卧室的小床 - 床头向东（右边）贴墙
-        this.createBed([12.5, 0, 3.75], bedMaterial, mattressMaterial, pillowMaterial, 'east');
+        // 右下卧室的小床 - 床头向右（东边）贴墙
+        this.createBed([14, 0, 3.75], bedMaterial, mattressMaterial, pillowMaterial, 'west');
     }
 
     createBed(position, bedMaterial, mattressMaterial, pillowMaterial, orientation = 'north') {
