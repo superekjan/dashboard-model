@@ -170,6 +170,7 @@ class FloorPlan3D {
         this.createFloor();
         this.createWalls();
         this.createBeds();
+        this.createSofaSet();
         this.createDevices();
     }
 
@@ -219,15 +220,15 @@ class FloorPlan3D {
 
         const innerWalls = [
             // 左半部分 - 上下分隔卧室1和卧室2
-            { pos: [-11.25, wallHeight / 2, 0], size: [7.5, wallHeight, wallThickness] },
+            { pos: [-10, wallHeight / 2, 0], size: [10, wallHeight, wallThickness] },
             // 左半部分 - 与中间客厅的分隔
-            { pos: [-7.5, wallHeight / 2, 0], size: [wallThickness, wallHeight, 15] },
+            { pos: [-5, wallHeight / 2, 0], size: [wallThickness, wallHeight, 15] },
             // 右上卧室3 - 与客厅的分隔
-            { pos: [7.5, wallHeight / 2, -3.75], size: [wallThickness, wallHeight, 7.5] },
+            { pos: [5, wallHeight / 2, -3.75], size: [wallThickness, wallHeight, 7.5] },
             // 右上卧室3 - 与右下卧室的分隔
-            { pos: [11.25, wallHeight / 2, 0], size: [7.5, wallHeight, wallThickness] },
+            { pos: [10, wallHeight / 2, 0], size: [10, wallHeight, wallThickness] },
             // 右下卧室4 - 与客厅的分隔
-            { pos: [7.5, wallHeight / 2, 3.75], size: [wallThickness, wallHeight, 7.5] }
+            { pos: [5, wallHeight / 2, 3.75], size: [wallThickness, wallHeight, 7.5] }
         ];
 
         innerWalls.forEach(wall => {
@@ -261,9 +262,9 @@ class FloorPlan3D {
         });
 
         // 左上卧室的小床 - 床头向西（左边）贴墙
-        this.createBed([-13.5, 0, -3.75], bedMaterial, mattressMaterial, pillowMaterial, 'west');
+        this.createBed([-12.5, 0, -3.75], bedMaterial, mattressMaterial, pillowMaterial, 'west');
         // 左下卧室的小床 - 床头向西（左边）贴墙
-        this.createBed([-13.5, 0, 3.75], bedMaterial, mattressMaterial, pillowMaterial, 'west');
+        this.createBed([-12.5, 0, 3.75], bedMaterial, mattressMaterial, pillowMaterial, 'west');
     }
 
     createBed(position, bedMaterial, mattressMaterial, pillowMaterial, orientation = 'north') {
@@ -302,12 +303,84 @@ class FloorPlan3D {
         this.scene.add(bedGroup);
     }
 
+    createSofaSet() {
+        const sofaMaterial = new THREE.MeshStandardMaterial({
+            color: 0x2c3e50,
+            roughness: 0.8,
+            metalness: 0.1
+        });
+        const tableMaterial = new THREE.MeshStandardMaterial({
+            color: 0x8B4513,
+            roughness: 0.6,
+            metalness: 0.2
+        });
+
+        // 客厅右上角位置
+        const centerX = 2;
+        const centerZ = -4;
+
+        // 茶几
+        const tableGeometry = new THREE.BoxGeometry(2, 0.4, 1.2);
+        const table = new THREE.Mesh(tableGeometry, tableMaterial);
+        table.position.set(centerX, 0.2, centerZ);
+        this.scene.add(table);
+
+        // 沙发1 - 北边（上方）
+        this.createSofa([centerX, 0, centerZ - 1.5], sofaMaterial, 'north');
+        // 沙发2 - 南边（下方）
+        this.createSofa([centerX, 0, centerZ + 1.5], sofaMaterial, 'south');
+        // 沙发3 - 西边（左边）
+        this.createSofa([centerX - 2, 0, centerZ], sofaMaterial, 'west');
+        // 沙发4 - 东边（右边）
+        this.createSofa([centerX + 2, 0, centerZ], sofaMaterial, 'east');
+    }
+
+    createSofa(position, material, orientation) {
+        const sofaGroup = new THREE.Group();
+        sofaGroup.position.set(...position);
+
+        // 根据朝向旋转
+        if (orientation === 'north') {
+            sofaGroup.rotation.y = 0;
+        } else if (orientation === 'south') {
+            sofaGroup.rotation.y = Math.PI;
+        } else if (orientation === 'west') {
+            sofaGroup.rotation.y = Math.PI / 2;
+        } else if (orientation === 'east') {
+            sofaGroup.rotation.y = -Math.PI / 2;
+        }
+
+        // 沙发座垫
+        const seatGeometry = new THREE.BoxGeometry(1.8, 0.4, 0.8);
+        const seat = new THREE.Mesh(seatGeometry, material);
+        seat.position.y = 0.2;
+        sofaGroup.add(seat);
+
+        // 沙发靠背
+        const backGeometry = new THREE.BoxGeometry(1.8, 0.6, 0.2);
+        const back = new THREE.Mesh(backGeometry, material);
+        back.position.set(0, 0.5, -0.3);
+        sofaGroup.add(back);
+
+        // 沙发扶手
+        const armGeometry = new THREE.BoxGeometry(0.2, 0.4, 0.8);
+        const armLeft = new THREE.Mesh(armGeometry, material);
+        armLeft.position.set(-0.8, 0.2, 0);
+        sofaGroup.add(armLeft);
+
+        const armRight = new THREE.Mesh(armGeometry, material);
+        armRight.position.set(0.8, 0.2, 0);
+        sofaGroup.add(armRight);
+
+        this.scene.add(sofaGroup);
+    }
+
     createDevices() {
         const deviceData = [
-            { pos: [-11.25, 0.5, -3.75], color: 0x7b2cbf, name: '路由1', signal: 88 },
-            { pos: [-11.25, 0.5, 3.75], color: 0x7b2cbf, name: '路由2', signal: 82 },
+            { pos: [-10, 0.5, -3.75], color: 0x7b2cbf, name: '路由1', signal: 88 },
+            { pos: [-10, 0.5, 3.75], color: 0x7b2cbf, name: '路由2', signal: 82 },
             { pos: [0, 0.5, 0], color: 0xff6b6b, name: '电视', signal: 70 },
-            { pos: [11.25, 0.5, 3.75], color: 0x00d4ff, name: '光猫', signal: 95 }
+            { pos: [10, 0.5, 3.75], color: 0x00d4ff, name: '光猫', signal: 95 }
         ];
 
         deviceData.forEach(device => {
