@@ -398,7 +398,7 @@ class NetworkMonitor {
     async fetchData() {
         this.showLoading();
         try {
-            const ontResponse = await fetch('https://chinaqoe.net/api/hreport_gm/getqoe_month?useruid=GZ1000010462590');
+            const ontResponse = await fetch('http://chinaqoe.net/api/hreport_gm/getqoe_month?useruid=GZ1000010462590');
             const ontResult = await ontResponse.json();
 
             if (ontResult.code === 1) {
@@ -409,7 +409,7 @@ class NetworkMonitor {
         }
 
         try {
-            const router1InfoRes = await fetch('https://chinaqoe.net/api/hreport_ly/getinfo?useruid=PKKQGW');
+            const router1InfoRes = await fetch('http://chinaqoe.net/api/hreport_ly/getinfo?useruid=PKKQGW');
             const router1Info = await router1InfoRes.json();
             if (router1Info.code === 1) {
                 this.parseRouter1Info(router1Info.result);
@@ -420,10 +420,10 @@ class NetworkMonitor {
 
         try {
             const [httpRes, videoRes, gameRes, speedRes] = await Promise.all([
-                fetch('https://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=PKKQGW'),
-                fetch('https://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=PKKQGW'),
-                fetch('https://chinaqoe.net/api/hreport_ly/getgame_day?useruid=PKKQGW'),
-                fetch('https://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=PKKQGW')
+                fetch('http://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=PKKQGW'),
+                fetch('http://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=PKKQGW'),
+                fetch('http://chinaqoe.net/api/hreport_ly/getgame_day?useruid=PKKQGW'),
+                fetch('http://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=PKKQGW')
             ]);
 
             const httpData = await httpRes.json();
@@ -437,7 +437,7 @@ class NetworkMonitor {
         }
 
         try {
-            const router2InfoRes = await fetch('https://chinaqoe.net/api/hreport_ly/getinfo?useruid=PKKQRW');
+            const router2InfoRes = await fetch('http://chinaqoe.net/api/hreport_ly/getinfo?useruid=PKKQRW');
             const router2Info = await router2InfoRes.json();
             if (router2Info.code === 1) {
                 this.parseRouter2Info(router2Info.result);
@@ -448,10 +448,10 @@ class NetworkMonitor {
 
         try {
             const [httpRes2, videoRes2, gameRes2, speedRes2] = await Promise.all([
-                fetch('https://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=PKKQRW'),
-                fetch('https://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=PKKQRW'),
-                fetch('https://chinaqoe.net/api/hreport_ly/getgame_day?useruid=PKKQRW'),
-                fetch('https://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=PKKQRW')
+                fetch('http://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=PKKQRW'),
+                fetch('http://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=PKKQRW'),
+                fetch('http://chinaqoe.net/api/hreport_ly/getgame_day?useruid=PKKQRW'),
+                fetch('http://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=PKKQRW')
             ]);
 
             const httpData2 = await httpRes2.json();

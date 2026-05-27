@@ -62,7 +62,7 @@ class FloorPlan3D {
         const width = this.container.clientWidth;
         const height = this.container.clientHeight;
 
-        const floorWidth = 14;
+        const floorWidth = 16;
         const floorHeight = 10;
         const diagonal = Math.sqrt(floorWidth * floorWidth + floorHeight * floorHeight);
 
@@ -113,7 +113,7 @@ class FloorPlan3D {
         this.controls.update();
         this.controls.enableDamping = wasDamping;
 
-        const floorWidth = 14;
+        const floorWidth = 16;
         const floorHeight = 10;
         const diagonal = Math.sqrt(floorWidth * floorWidth + floorHeight * floorHeight);
         const distance = diagonal * 0.75;
@@ -173,7 +173,7 @@ class FloorPlan3D {
     }
 
     createFloor() {
-        const floorGeometry = new THREE.PlaneGeometry(14, 10);
+        const floorGeometry = new THREE.PlaneGeometry(16, 10);
         const floorMaterial = new THREE.MeshStandardMaterial({
             color: 0x1a1a2e,
             roughness: 0.8,
@@ -184,7 +184,7 @@ class FloorPlan3D {
         floor.position.y = 0;
         this.scene.add(floor);
 
-        const gridHelper = new THREE.GridHelper(14, 14, 0x00d4ff, 0x00d4ff);
+        const gridHelper = new THREE.GridHelper(16, 16, 0x00d4ff, 0x00d4ff);
         gridHelper.position.y = 0.01;
         gridHelper.material.opacity = 0.1;
         gridHelper.material.transparent = true;
@@ -203,10 +203,10 @@ class FloorPlan3D {
         });
 
         const outerWalls = [
-            { pos: [0, wallHeight / 2, -5], size: [14, wallHeight, wallThickness] },
-            { pos: [0, wallHeight / 2, 5], size: [14, wallHeight, wallThickness] },
-            { pos: [-7, wallHeight / 2, 0], size: [wallThickness, wallHeight, 10] },
-            { pos: [7, wallHeight / 2, 0], size: [wallThickness, wallHeight, 10] }
+            { pos: [0, wallHeight / 2, -5], size: [16, wallHeight, wallThickness] },
+            { pos: [0, wallHeight / 2, 5], size: [16, wallHeight, wallThickness] },
+            { pos: [-8, wallHeight / 2, 0], size: [wallThickness, wallHeight, 10] },
+            { pos: [8, wallHeight / 2, 0], size: [wallThickness, wallHeight, 10] }
         ];
 
         outerWalls.forEach(wall => {
@@ -217,10 +217,19 @@ class FloorPlan3D {
         });
 
         const innerWalls = [
-            { pos: [-4, wallHeight / 2, 1], size: [6, wallHeight, wallThickness] },
-            { pos: [4, wallHeight / 2, 1], size: [6, wallHeight, wallThickness] },
-            { pos: [-4, wallHeight / 2, -2], size: [wallThickness, wallHeight, 6] },
-            { pos: [4, wallHeight / 2, -2], size: [wallThickness, wallHeight, 6] }
+            // 左半部分 - 上下分隔卧室1和卧室2
+            { pos: [-5.5, wallHeight / 2, 0], size: [5, wallHeight, wallThickness] },
+            // 左半部分 - 与中间客厅的分隔
+            { pos: [-3, wallHeight / 2, 0], size: [wallThickness, wallHeight, 10] },
+            // 右上卧室3 - 与客厅的分隔
+            { pos: [3, wallHeight / 2, -2.5], size: [wallThickness, wallHeight, 5] },
+            // 右上卧室3 - 与右下卧室的分隔
+            { pos: [5.5, wallHeight / 2, 0], size: [5, wallHeight, wallThickness] },
+            // 右下卧室4 - 与客厅的分隔
+            { pos: [3, wallHeight / 2, 2.5], size: [wallThickness, wallHeight, 5] },
+            // 卫生间 - 在右侧中间
+            { pos: [6.5, wallHeight / 2, 0], size: [3, wallHeight, wallThickness] },
+            { pos: [5, wallHeight / 2, 0], size: [wallThickness, wallHeight, 2] }
         ];
 
         innerWalls.forEach(wall => {
@@ -238,12 +247,14 @@ class FloorPlan3D {
 
     createDevices() {
         const deviceData = [
-            { pos: [3, 0.5, 3], color: 0x00d4ff, name: '光猫', signal: 95 },
-            { pos: [0, 0.5, 3], color: 0x7b2cbf, name: '路由1', signal: 88 },
-            { pos: [5.5, 0.5, -3], color: 0x7b2cbf, name: '路由2', signal: 82 },
-            { pos: [2, 0.5, 0], color: 0x00f5d4, name: '手机', signal: 75 },
-            { pos: [-5.5, 0.5, 3], color: 0xff6b6b, name: '电视', signal: 70 },
-            { pos: [-5.5, 0.5, -3], color: 0xffd93d, name: '平板', signal: 65 }
+            { pos: [-5.5, 0.5, -2.5], color: 0x7b2cbf, name: '路由1', signal: 88 },
+            { pos: [-5.5, 0.5, 2.5], color: 0x7b2cbf, name: '路由2', signal: 82 },
+            { pos: [5.5, 0.5, -2.5], color: 0x7b2cbf, name: '路由3', signal: 85 },
+            { pos: [5.5, 0.5, 2.5], color: 0x7b2cbf, name: '路由4', signal: 80 },
+            { pos: [0, 0.5, 0], color: 0x00d4ff, name: '光猫', signal: 95 },
+            { pos: [1, 0.5, -1], color: 0x00f5d4, name: '手机', signal: 75 },
+            { pos: [-1, 0.5, 1], color: 0xff6b6b, name: '电视', signal: 70 },
+            { pos: [2, 0.5, 2], color: 0xffd93d, name: '平板', signal: 65 }
         ];
 
         deviceData.forEach(device => {
