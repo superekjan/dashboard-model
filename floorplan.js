@@ -226,10 +226,7 @@ class FloorPlan3D {
             // 右上卧室3 - 与右下卧室的分隔
             { pos: [5.5, wallHeight / 2, 0], size: [5, wallHeight, wallThickness] },
             // 右下卧室4 - 与客厅的分隔
-            { pos: [3, wallHeight / 2, 2.5], size: [wallThickness, wallHeight, 5] },
-            // 卫生间 - 在右侧中间
-            { pos: [6.5, wallHeight / 2, 0], size: [3, wallHeight, wallThickness] },
-            { pos: [5, wallHeight / 2, 0], size: [wallThickness, wallHeight, 2] }
+            { pos: [3, wallHeight / 2, 2.5], size: [wallThickness, wallHeight, 5] }
         ];
 
         innerWalls.forEach(wall => {
@@ -249,12 +246,8 @@ class FloorPlan3D {
         const deviceData = [
             { pos: [-5.5, 0.5, -2.5], color: 0x7b2cbf, name: '路由1', signal: 88 },
             { pos: [-5.5, 0.5, 2.5], color: 0x7b2cbf, name: '路由2', signal: 82 },
-            { pos: [5.5, 0.5, -2.5], color: 0x7b2cbf, name: '路由3', signal: 85 },
-            { pos: [5.5, 0.5, 2.5], color: 0x7b2cbf, name: '路由4', signal: 80 },
-            { pos: [0, 0.5, 0], color: 0x00d4ff, name: '光猫', signal: 95 },
-            { pos: [1, 0.5, -1], color: 0x00f5d4, name: '手机', signal: 75 },
-            { pos: [-1, 0.5, 1], color: 0xff6b6b, name: '电视', signal: 70 },
-            { pos: [2, 0.5, 2], color: 0xffd93d, name: '平板', signal: 65 }
+            { pos: [0, 0.5, 0], color: 0xff6b6b, name: '电视', signal: 70 },
+            { pos: [5.5, 0.5, 2.5], color: 0x00d4ff, name: '光猫', signal: 95 }
         ];
 
         deviceData.forEach(device => {
