@@ -62,7 +62,7 @@ class FloorPlan3D {
         const width = this.container.clientWidth;
         const height = this.container.clientHeight;
 
-        const floorWidth = 24;
+        const floorWidth = 30;
         const floorHeight = 15;
         const diagonal = Math.sqrt(floorWidth * floorWidth + floorHeight * floorHeight);
 
@@ -113,7 +113,7 @@ class FloorPlan3D {
         this.controls.update();
         this.controls.enableDamping = wasDamping;
 
-        const floorWidth = 24;
+        const floorWidth = 30;
         const floorHeight = 15;
         const diagonal = Math.sqrt(floorWidth * floorWidth + floorHeight * floorHeight);
         const distance = diagonal * 0.75;
@@ -174,7 +174,7 @@ class FloorPlan3D {
     }
 
     createFloor() {
-        const floorGeometry = new THREE.PlaneGeometry(24, 15);
+        const floorGeometry = new THREE.PlaneGeometry(30, 15);
         const floorMaterial = new THREE.MeshStandardMaterial({
             color: 0x1a1a2e,
             roughness: 0.8,
@@ -185,7 +185,7 @@ class FloorPlan3D {
         floor.position.y = 0;
         this.scene.add(floor);
 
-        const gridHelper = new THREE.GridHelper(24, 24, 0x00d4ff, 0x00d4ff);
+        const gridHelper = new THREE.GridHelper(30, 30, 0x00d4ff, 0x00d4ff);
         gridHelper.position.y = 0.01;
         gridHelper.material.opacity = 0.1;
         gridHelper.material.transparent = true;
@@ -204,10 +204,10 @@ class FloorPlan3D {
         });
 
         const outerWalls = [
-            { pos: [0, wallHeight / 2, -7.5], size: [24, wallHeight, wallThickness] },
-            { pos: [0, wallHeight / 2, 7.5], size: [24, wallHeight, wallThickness] },
-            { pos: [-12, wallHeight / 2, 0], size: [wallThickness, wallHeight, 15] },
-            { pos: [12, wallHeight / 2, 0], size: [wallThickness, wallHeight, 15] }
+            { pos: [0, wallHeight / 2, -7.5], size: [30, wallHeight, wallThickness] },
+            { pos: [0, wallHeight / 2, 7.5], size: [30, wallHeight, wallThickness] },
+            { pos: [-15, wallHeight / 2, 0], size: [wallThickness, wallHeight, 15] },
+            { pos: [15, wallHeight / 2, 0], size: [wallThickness, wallHeight, 15] }
         ];
 
         outerWalls.forEach(wall => {
@@ -219,15 +219,15 @@ class FloorPlan3D {
 
         const innerWalls = [
             // 左半部分 - 上下分隔卧室1和卧室2
-            { pos: [-8.25, wallHeight / 2, 0], size: [7.5, wallHeight, wallThickness] },
+            { pos: [-11.25, wallHeight / 2, 0], size: [7.5, wallHeight, wallThickness] },
             // 左半部分 - 与中间客厅的分隔
-            { pos: [-4.5, wallHeight / 2, 0], size: [wallThickness, wallHeight, 15] },
+            { pos: [-7.5, wallHeight / 2, 0], size: [wallThickness, wallHeight, 15] },
             // 右上卧室3 - 与客厅的分隔
-            { pos: [4.5, wallHeight / 2, -3.75], size: [wallThickness, wallHeight, 7.5] },
+            { pos: [7.5, wallHeight / 2, -3.75], size: [wallThickness, wallHeight, 7.5] },
             // 右上卧室3 - 与右下卧室的分隔
-            { pos: [8.25, wallHeight / 2, 0], size: [7.5, wallHeight, wallThickness] },
+            { pos: [11.25, wallHeight / 2, 0], size: [7.5, wallHeight, wallThickness] },
             // 右下卧室4 - 与客厅的分隔
-            { pos: [4.5, wallHeight / 2, 3.75], size: [wallThickness, wallHeight, 7.5] }
+            { pos: [7.5, wallHeight / 2, 3.75], size: [wallThickness, wallHeight, 7.5] }
         ];
 
         innerWalls.forEach(wall => {
@@ -260,15 +260,20 @@ class FloorPlan3D {
             metalness: 0.0
         });
 
-        // 左上卧室的小床
-        this.createBed([-9.75, 0, -5.25], bedMaterial, mattressMaterial, pillowMaterial);
-        // 左下卧室的小床
-        this.createBed([-9.75, 0, 5.25], bedMaterial, mattressMaterial, pillowMaterial);
+        // 左上卧室的小床 - 床头向西（左边）贴墙
+        this.createBed([-13.5, 0, -3.75], bedMaterial, mattressMaterial, pillowMaterial, 'west');
+        // 左下卧室的小床 - 床头向西（左边）贴墙
+        this.createBed([-13.5, 0, 3.75], bedMaterial, mattressMaterial, pillowMaterial, 'west');
     }
 
-    createBed(position, bedMaterial, mattressMaterial, pillowMaterial) {
+    createBed(position, bedMaterial, mattressMaterial, pillowMaterial, orientation = 'north') {
         const bedGroup = new THREE.Group();
         bedGroup.position.set(...position);
+
+        // 根据朝向调整床的旋转
+        if (orientation === 'west') {
+            bedGroup.rotation.y = Math.PI / 2;
+        }
 
         // 床架
         const bedFrameGeometry = new THREE.BoxGeometry(2, 0.3, 3);
@@ -299,10 +304,10 @@ class FloorPlan3D {
 
     createDevices() {
         const deviceData = [
-            { pos: [-8.25, 0.5, -3.75], color: 0x7b2cbf, name: '路由1', signal: 88 },
-            { pos: [-8.25, 0.5, 3.75], color: 0x7b2cbf, name: '路由2', signal: 82 },
+            { pos: [-11.25, 0.5, -3.75], color: 0x7b2cbf, name: '路由1', signal: 88 },
+            { pos: [-11.25, 0.5, 3.75], color: 0x7b2cbf, name: '路由2', signal: 82 },
             { pos: [0, 0.5, 0], color: 0xff6b6b, name: '电视', signal: 70 },
-            { pos: [8.25, 0.5, 3.75], color: 0x00d4ff, name: '光猫', signal: 95 }
+            { pos: [11.25, 0.5, 3.75], color: 0x00d4ff, name: '光猫', signal: 95 }
         ];
 
         deviceData.forEach(device => {
