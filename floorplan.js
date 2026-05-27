@@ -389,14 +389,14 @@ class FloorPlan3D {
             metalness: 0.8
         });
         const glassMaterial = new THREE.MeshStandardMaterial({
-            color: 0x87ceeb,
+            color: 0xffffff,
             roughness: 0.1,
             metalness: 0.9,
             transparent: true,
             opacity: 0.4
         });
         const chromeMaterial = new THREE.MeshStandardMaterial({
-            color: 0xcccccc,
+            color: 0xffffff,
             roughness: 0.1,
             metalness: 0.9
         });
@@ -405,9 +405,10 @@ class FloorPlan3D {
         const roomCenterX = 10;
         const roomCenterZ = -4.5;
 
-        // 马桶 - 右侧靠墙
+        // 马桶 - 右侧靠墙，正面朝西
         const toiletGroup = new THREE.Group();
         toiletGroup.position.set(14, 0, -4.5);
+        toiletGroup.rotation.y = -Math.PI / 2;
 
         const toiletBaseGeometry = new THREE.BoxGeometry(0.8, 0.4, 1);
         const toiletBase = new THREE.Mesh(toiletBaseGeometry, whiteMaterial);
