@@ -169,6 +169,7 @@ class FloorPlan3D {
     createFloorPlan() {
         this.createFloor();
         this.createWalls();
+        this.createFurniture();
         this.createDevices();
     }
 
@@ -240,6 +241,271 @@ class FloorPlan3D {
             const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
             mesh.add(edges);
         });
+    }
+
+    createFurniture() {
+        // 客厅 - 沙发
+        this.createSofa(0, 0, 2.5, 0x8B4513);
+        // 客厅 - 茶几
+        this.createCoffeeTable(0, 0, 1, 0x654321);
+        // 客厅 - 电视柜
+        this.createTVStand(-2, 0, -2, 0x654321);
+
+        // 卧室1 - 床
+        this.createBed(-5.5, 0, -2.5, 0x4169E1);
+        // 卧室1 - 床头柜
+        this.createNightstand(-7, 0, -3.5, 0x654321);
+
+        // 卧室2 - 床
+        this.createBed(-5.5, 0, 2.5, 0x4169E1);
+        // 卧室2 - 床头柜
+        this.createNightstand(-7, 0, 3.5, 0x654321);
+
+        // 卧室3 - 床
+        this.createBed(5.5, 0, -2.5, 0x4169E1);
+        // 卧室3 - 床头柜
+        this.createNightstand(7, 0, -3.5, 0x654321);
+
+        // 卧室4 - 书桌
+        this.createDesk(5.5, 0, 2.5, 0x654321);
+        // 卧室4 - 椅子
+        this.createChair(5.5, 0, 1.5, 0x8B4513);
+    }
+
+    createSofa(x, y, z, color) {
+        const group = new THREE.Group();
+        group.position.set(x, y, z);
+
+        // 沙发底座
+        const baseGeometry = new THREE.BoxGeometry(3, 0.5, 1.2);
+        const baseMaterial = new THREE.MeshStandardMaterial({ color: color, roughness: 0.8 });
+        const base = new THREE.Mesh(baseGeometry, baseMaterial);
+        base.position.y = 0.25;
+        group.add(base);
+
+        // 沙发靠背
+        const backGeometry = new THREE.BoxGeometry(3, 1, 0.3);
+        const back = new THREE.Mesh(backGeometry, baseMaterial);
+        back.position.set(0, 0.75, -0.45);
+        group.add(back);
+
+        // 沙发扶手
+        const armGeometry = new THREE.BoxGeometry(0.3, 0.8, 1.2);
+        const leftArm = new THREE.Mesh(armGeometry, baseMaterial);
+        leftArm.position.set(-1.35, 0.65, 0);
+        group.add(leftArm);
+
+        const rightArm = new THREE.Mesh(armGeometry, baseMaterial);
+        rightArm.position.set(1.35, 0.65, 0);
+        group.add(rightArm);
+
+        this.scene.add(group);
+    }
+
+    createCoffeeTable(x, y, z, color) {
+        const group = new THREE.Group();
+        group.position.set(x, y, z);
+
+        // 桌面
+        const topGeometry = new THREE.BoxGeometry(1.5, 0.1, 0.8);
+        const topMaterial = new THREE.MeshStandardMaterial({ color: color, roughness: 0.6 });
+        const top = new THREE.Mesh(topGeometry, topMaterial);
+        top.position.y = 0.5;
+        group.add(top);
+
+        // 桌腿
+        const legGeometry = new THREE.BoxGeometry(0.1, 0.5, 0.1);
+        const legMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        
+        const positions = [
+            [-0.6, 0.25, -0.3],
+            [0.6, 0.25, -0.3],
+            [-0.6, 0.25, 0.3],
+            [0.6, 0.25, 0.3]
+        ];
+
+        positions.forEach(pos => {
+            const leg = new THREE.Mesh(legGeometry, legMaterial);
+            leg.position.set(...pos);
+            group.add(leg);
+        });
+
+        this.scene.add(group);
+    }
+
+    createTVStand(x, y, z, color) {
+        const group = new THREE.Group();
+        group.position.set(x, y, z);
+
+        // 柜体
+        const bodyGeometry = new THREE.BoxGeometry(2, 0.8, 0.5);
+        const bodyMaterial = new THREE.MeshStandardMaterial({ color: color, roughness: 0.6 });
+        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+        body.position.y = 0.4;
+        group.add(body);
+
+        // 电视屏幕
+        const screenGeometry = new THREE.BoxGeometry(1.8, 1.2, 0.1);
+        const screenMaterial = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2 });
+        const screen = new THREE.Mesh(screenGeometry, screenMaterial);
+        screen.position.set(0, 1.4, 0);
+        group.add(screen);
+
+        this.scene.add(group);
+    }
+
+    createBed(x, y, z, color) {
+        const group = new THREE.Group();
+        group.position.set(x, y, z);
+
+        // 床架
+        const frameGeometry = new THREE.BoxGeometry(2, 0.4, 2.5);
+        const frameMaterial = new THREE.MeshStandardMaterial({ color: 0x654321, roughness: 0.8 });
+        const frame = new THREE.Mesh(frameGeometry, frameMaterial);
+        frame.position.y = 0.2;
+        group.add(frame);
+
+        // 床垫
+        const mattressGeometry = new THREE.BoxGeometry(1.8, 0.3, 2.3);
+        const mattressMaterial = new THREE.MeshStandardMaterial({ color: color, roughness: 0.9 });
+        const mattress = new THREE.Mesh(mattressGeometry, mattressMaterial);
+        mattress.position.y = 0.55;
+        group.add(mattress);
+
+        // 枕头
+        const pillowGeometry = new THREE.BoxGeometry(1.2, 0.15, 0.4);
+        const pillowMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.9 });
+        const pillow = new THREE.Mesh(pillowGeometry, pillowMaterial);
+        pillow.position.set(0, 0.75, -0.8);
+        group.add(pillow);
+
+        // 床头板
+        const headboardGeometry = new THREE.BoxGeometry(2, 1.2, 0.1);
+        const headboard = new THREE.Mesh(headboardGeometry, frameMaterial);
+        headboard.position.set(0, 0.8, -1.25);
+        group.add(headboard);
+
+        this.scene.add(group);
+    }
+
+    createNightstand(x, y, z, color) {
+        const group = new THREE.Group();
+        group.position.set(x, y, z);
+
+        // 柜体
+        const bodyGeometry = new THREE.BoxGeometry(0.6, 0.6, 0.5);
+        const bodyMaterial = new THREE.MeshStandardMaterial({ color: color, roughness: 0.7 });
+        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+        body.position.y = 0.3;
+        group.add(body);
+
+        // 抽屉
+        const drawerGeometry = new THREE.BoxGeometry(0.5, 0.2, 0.05);
+        const drawerMaterial = new THREE.MeshStandardMaterial({ color: 0x8B7355 });
+        const drawer = new THREE.Mesh(drawerGeometry, drawerMaterial);
+        drawer.position.set(0, 0.4, 0.25);
+        group.add(drawer);
+
+        // 台灯
+        const lampBaseGeometry = new THREE.CylinderGeometry(0.1, 0.15, 0.1, 16);
+        const lampBaseMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        const lampBase = new THREE.Mesh(lampBaseGeometry, lampBaseMaterial);
+        lampBase.position.y = 0.65;
+        group.add(lampBase);
+
+        const lampPoleGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.4, 8);
+        const lampPole = new THREE.Mesh(lampPoleGeometry, lampBaseMaterial);
+        lampPole.position.y = 0.9;
+        group.add(lampPole);
+
+        const lampShadeGeometry = new THREE.ConeGeometry(0.2, 0.25, 16, 1, true);
+        const lampShadeMaterial = new THREE.MeshStandardMaterial({ color: 0xFFF8DC, transparent: true, opacity: 0.8 });
+        const lampShade = new THREE.Mesh(lampShadeGeometry, lampShadeMaterial);
+        lampShade.position.y = 1.1;
+        group.add(lampShade);
+
+        this.scene.add(group);
+    }
+
+    createDesk(x, y, z, color) {
+        const group = new THREE.Group();
+        group.position.set(x, y, z);
+
+        // 桌面
+        const topGeometry = new THREE.BoxGeometry(1.8, 0.1, 0.9);
+        const topMaterial = new THREE.MeshStandardMaterial({ color: color, roughness: 0.6 });
+        const top = new THREE.Mesh(topGeometry, topMaterial);
+        top.position.y = 0.75;
+        group.add(top);
+
+        // 桌腿
+        const legGeometry = new THREE.BoxGeometry(0.08, 0.75, 0.08);
+        const legMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        
+        const positions = [
+            [-0.8, 0.375, -0.35],
+            [0.8, 0.375, -0.35],
+            [-0.8, 0.375, 0.35],
+            [0.8, 0.375, 0.35]
+        ];
+
+        positions.forEach(pos => {
+            const leg = new THREE.Mesh(legGeometry, legMaterial);
+            leg.position.set(...pos);
+            group.add(leg);
+        });
+
+        // 电脑显示器
+        const monitorGeometry = new THREE.BoxGeometry(0.6, 0.4, 0.05);
+        const monitorMaterial = new THREE.MeshStandardMaterial({ color: 0x111111 });
+        const monitor = new THREE.Mesh(monitorGeometry, monitorMaterial);
+        monitor.position.set(0, 1, -0.2);
+        group.add(monitor);
+
+        // 显示器支架
+        const standGeometry = new THREE.BoxGeometry(0.1, 0.2, 0.1);
+        const stand = new THREE.Mesh(standGeometry, legMaterial);
+        stand.position.set(0, 0.9, -0.2);
+        group.add(stand);
+
+        this.scene.add(group);
+    }
+
+    createChair(x, y, z, color) {
+        const group = new THREE.Group();
+        group.position.set(x, y, z);
+
+        // 座椅
+        const seatGeometry = new THREE.BoxGeometry(0.5, 0.1, 0.5);
+        const seatMaterial = new THREE.MeshStandardMaterial({ color: color, roughness: 0.8 });
+        const seat = new THREE.Mesh(seatGeometry, seatMaterial);
+        seat.position.y = 0.5;
+        group.add(seat);
+
+        // 靠背
+        const backGeometry = new THREE.BoxGeometry(0.5, 0.6, 0.1);
+        const back = new THREE.Mesh(backGeometry, seatMaterial);
+        back.position.set(0, 0.8, -0.2);
+        group.add(back);
+
+        // 椅腿
+        const legGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.5, 8);
+        const legMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        
+        const positions = [
+            [-0.2, 0.25, -0.2],
+            [0.2, 0.25, -0.2],
+            [-0.2, 0.25, 0.2],
+            [0.2, 0.25, 0.2]
+        ];
+
+        positions.forEach(pos => {
+            const leg = new THREE.Mesh(legGeometry, legMaterial);
+            leg.position.set(...pos);
+            group.add(leg);
+        });
+
+        this.scene.add(group);
     }
 
     createDevices() {
