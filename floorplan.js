@@ -385,20 +385,20 @@ class FloorPlan3D {
     createBathroom() {
         const whiteMaterial = new THREE.MeshStandardMaterial({
             color: 0xffffff,
-            roughness: 0.2,
-            metalness: 0.8
+            roughness: 0.8,
+            metalness: 0.1
         });
         const glassMaterial = new THREE.MeshStandardMaterial({
             color: 0xffffff,
-            roughness: 0.1,
-            metalness: 0.9,
+            roughness: 0.3,
+            metalness: 0.1,
             transparent: true,
             opacity: 0.4
         });
         const chromeMaterial = new THREE.MeshStandardMaterial({
             color: 0xffffff,
-            roughness: 0.1,
-            metalness: 0.9
+            roughness: 0.5,
+            metalness: 0.3
         });
 
         // 右上角浴室: x=5~15, z=-7.5~-1.5
