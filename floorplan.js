@@ -66,9 +66,9 @@ class FloorPlan3D {
         const floorHeight = 15;
         const diagonal = Math.sqrt(floorWidth * floorWidth + floorHeight * floorHeight);
 
-        const distance = diagonal * 0.75;
+        const distance = diagonal * 0.6;
 
-        this.camera.position.set(0, distance * 0.9, distance);
+        this.camera.position.set(0, distance * 0.8, distance);
         this.camera.lookAt(0, 0, 0);
 
         if (this.controls) {
@@ -116,9 +116,9 @@ class FloorPlan3D {
         const floorWidth = 30;
         const floorHeight = 15;
         const diagonal = Math.sqrt(floorWidth * floorWidth + floorHeight * floorHeight);
-        const distance = diagonal * 0.75;
+        const distance = diagonal * 0.6;
 
-        this.controls.object.position.set(0, distance * 0.9, distance);
+        this.controls.object.position.set(0, distance * 0.8, distance);
         this.controls.target.set(0, 0, 0);
         this.controls.object.updateProjectionMatrix();
 
@@ -496,7 +496,7 @@ class FloorPlan3D {
         const deviceData = [
             { pos: [-7, 0.5, -3.75], color: 0x7b2cbf, name: '路由1', signal: 88 },
             { pos: [-7, 0.5, 3.75], color: 0x7b2cbf, name: '路由2', signal: 82 },
-            { pos: [0, 0.5, 0], color: 0xff6b6b, name: '电视', signal: 70 },
+            { pos: [3, 0.5, 5], color: 0xff6b6b, name: '电视', signal: 70 },
             { pos: [7, 0.5, 3.75], color: 0x00d4ff, name: '光猫', signal: 95 }
         ];
 
