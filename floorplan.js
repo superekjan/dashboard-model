@@ -269,8 +269,6 @@ class FloorPlan3D {
         this.createBed([-12.5, 0, 3.75], bedMaterial, mattressMaterial, pillowMaterial, 'west');
         // 右下卧室的小床 - 床头向东（右边）贴墙
         this.createBed([12.5, 0, 3.75], bedMaterial, mattressMaterial, pillowMaterial, 'east');
-        // 右上角房间的小床 - 床头向东（右边）贴墙
-        this.createBed([12.5, 0, -3.75], bedMaterial, mattressMaterial, pillowMaterial, 'east');
     }
 
     createBed(position, bedMaterial, mattressMaterial, pillowMaterial, orientation = 'north') {
@@ -280,6 +278,8 @@ class FloorPlan3D {
         // 根据朝向调整床的旋转
         if (orientation === 'west') {
             bedGroup.rotation.y = Math.PI / 2;
+        } else if (orientation === 'east') {
+            bedGroup.rotation.y = -Math.PI / 2;
         }
 
         // 床架
