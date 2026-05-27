@@ -379,8 +379,8 @@ class FloorPlan3D {
 
     createDevices() {
         const deviceData = [
-            { pos: [-10, 0.5, -3.75], color: 0x7b2cbf, name: '路由1', signal: 88 },
-            { pos: [-10, 0.5, 3.75], color: 0x7b2cbf, name: '路由2', signal: 82 },
+            { pos: [-7, 0.5, -3.75], color: 0x7b2cbf, name: '路由1', signal: 88 },
+            { pos: [-7, 0.5, 3.75], color: 0x7b2cbf, name: '路由2', signal: 82 },
             { pos: [0, 0.5, 0], color: 0xff6b6b, name: '电视', signal: 70 },
             { pos: [12, 0.5, 3.75], color: 0x00d4ff, name: '光猫', signal: 95 }
         ];
