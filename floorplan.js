@@ -62,8 +62,8 @@ class FloorPlan3D {
         const width = this.container.clientWidth;
         const height = this.container.clientHeight;
 
-        const floorWidth = 16;
-        const floorHeight = 10;
+        const floorWidth = 24;
+        const floorHeight = 15;
         const diagonal = Math.sqrt(floorWidth * floorWidth + floorHeight * floorHeight);
 
         const distance = diagonal * 0.75;
@@ -113,8 +113,8 @@ class FloorPlan3D {
         this.controls.update();
         this.controls.enableDamping = wasDamping;
 
-        const floorWidth = 16;
-        const floorHeight = 10;
+        const floorWidth = 24;
+        const floorHeight = 15;
         const diagonal = Math.sqrt(floorWidth * floorWidth + floorHeight * floorHeight);
         const distance = diagonal * 0.75;
 
@@ -174,7 +174,7 @@ class FloorPlan3D {
     }
 
     createFloor() {
-        const floorGeometry = new THREE.PlaneGeometry(16, 10);
+        const floorGeometry = new THREE.PlaneGeometry(24, 15);
         const floorMaterial = new THREE.MeshStandardMaterial({
             color: 0x1a1a2e,
             roughness: 0.8,
@@ -185,7 +185,7 @@ class FloorPlan3D {
         floor.position.y = 0;
         this.scene.add(floor);
 
-        const gridHelper = new THREE.GridHelper(16, 16, 0x00d4ff, 0x00d4ff);
+        const gridHelper = new THREE.GridHelper(24, 24, 0x00d4ff, 0x00d4ff);
         gridHelper.position.y = 0.01;
         gridHelper.material.opacity = 0.1;
         gridHelper.material.transparent = true;
@@ -204,10 +204,10 @@ class FloorPlan3D {
         });
 
         const outerWalls = [
-            { pos: [0, wallHeight / 2, -5], size: [16, wallHeight, wallThickness] },
-            { pos: [0, wallHeight / 2, 5], size: [16, wallHeight, wallThickness] },
-            { pos: [-8, wallHeight / 2, 0], size: [wallThickness, wallHeight, 10] },
-            { pos: [8, wallHeight / 2, 0], size: [wallThickness, wallHeight, 10] }
+            { pos: [0, wallHeight / 2, -7.5], size: [24, wallHeight, wallThickness] },
+            { pos: [0, wallHeight / 2, 7.5], size: [24, wallHeight, wallThickness] },
+            { pos: [-12, wallHeight / 2, 0], size: [wallThickness, wallHeight, 15] },
+            { pos: [12, wallHeight / 2, 0], size: [wallThickness, wallHeight, 15] }
         ];
 
         outerWalls.forEach(wall => {
@@ -219,15 +219,15 @@ class FloorPlan3D {
 
         const innerWalls = [
             // 左半部分 - 上下分隔卧室1和卧室2
-            { pos: [-5.5, wallHeight / 2, 0], size: [5, wallHeight, wallThickness] },
+            { pos: [-8.25, wallHeight / 2, 0], size: [7.5, wallHeight, wallThickness] },
             // 左半部分 - 与中间客厅的分隔
-            { pos: [-3, wallHeight / 2, 0], size: [wallThickness, wallHeight, 10] },
+            { pos: [-4.5, wallHeight / 2, 0], size: [wallThickness, wallHeight, 15] },
             // 右上卧室3 - 与客厅的分隔
-            { pos: [3, wallHeight / 2, -2.5], size: [wallThickness, wallHeight, 5] },
+            { pos: [4.5, wallHeight / 2, -3.75], size: [wallThickness, wallHeight, 7.5] },
             // 右上卧室3 - 与右下卧室的分隔
-            { pos: [5.5, wallHeight / 2, 0], size: [5, wallHeight, wallThickness] },
+            { pos: [8.25, wallHeight / 2, 0], size: [7.5, wallHeight, wallThickness] },
             // 右下卧室4 - 与客厅的分隔
-            { pos: [3, wallHeight / 2, 2.5], size: [wallThickness, wallHeight, 5] }
+            { pos: [4.5, wallHeight / 2, 3.75], size: [wallThickness, wallHeight, 7.5] }
         ];
 
         innerWalls.forEach(wall => {
@@ -261,9 +261,9 @@ class FloorPlan3D {
         });
 
         // 左上卧室的小床
-        this.createBed([-6.5, 0, -3.5], bedMaterial, mattressMaterial, pillowMaterial);
+        this.createBed([-9.75, 0, -5.25], bedMaterial, mattressMaterial, pillowMaterial);
         // 左下卧室的小床
-        this.createBed([-6.5, 0, 3.5], bedMaterial, mattressMaterial, pillowMaterial);
+        this.createBed([-9.75, 0, 5.25], bedMaterial, mattressMaterial, pillowMaterial);
     }
 
     createBed(position, bedMaterial, mattressMaterial, pillowMaterial) {
@@ -299,10 +299,10 @@ class FloorPlan3D {
 
     createDevices() {
         const deviceData = [
-            { pos: [-5.5, 0.5, -2.5], color: 0x7b2cbf, name: '路由1', signal: 88 },
-            { pos: [-5.5, 0.5, 2.5], color: 0x7b2cbf, name: '路由2', signal: 82 },
+            { pos: [-8.25, 0.5, -3.75], color: 0x7b2cbf, name: '路由1', signal: 88 },
+            { pos: [-8.25, 0.5, 3.75], color: 0x7b2cbf, name: '路由2', signal: 82 },
             { pos: [0, 0.5, 0], color: 0xff6b6b, name: '电视', signal: 70 },
-            { pos: [5.5, 0.5, 2.5], color: 0x00d4ff, name: '光猫', signal: 95 }
+            { pos: [8.25, 0.5, 3.75], color: 0x00d4ff, name: '光猫', signal: 95 }
         ];
 
         deviceData.forEach(device => {
