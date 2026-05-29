@@ -68,7 +68,7 @@ class FloorPlan3D {
 
         const distance = diagonal * 0.6;
 
-        this.camera.position.set(0, distance * 0.8, distance);
+        this.camera.position.set(0, distance * 0.9, distance);
         this.camera.lookAt(0, 0, 0);
 
         if (this.controls) {
@@ -173,6 +173,7 @@ class FloorPlan3D {
         this.createSofaSet();
         this.createBathroom();
         this.createDevices();
+        this.createInternetConnection();
     }
 
     createFloor() {
@@ -492,6 +493,122 @@ class FloorPlan3D {
         this.scene.add(showerGroup);
     }
 
+    createInternetConnection() {
+        // 互联网标识 - 地球模型
+        const globeGroup = new THREE.Group();
+        const globeRadius = 1.2;
+
+        // 地球主体
+        const globeGeometry = new THREE.SphereGeometry(globeRadius, 32, 32);
+        const globeMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1e90ff,
+            roughness: 0.3,
+            metalness: 0.5,
+            emissive: 0x1e90ff,
+            emissiveIntensity: 0.3
+        });
+        const globe = new THREE.Mesh(globeGeometry, globeMaterial);
+        globeGroup.add(globe);
+
+        // 地球经纬线
+        const lineMaterial = new THREE.LineBasicMaterial({ color: 0x87ceeb, transparent: true, opacity: 0.5 });
+
+        // 经线
+        for (let i = 0; i < 6; i++) {
+            const points = [];
+            const angle = (i / 6) * Math.PI;
+            for (let j = 0; j <= 32; j++) {
+                const lat = (j / 32) * Math.PI - Math.PI / 2;
+                points.push(new THREE.Vector3(
+                    globeRadius * Math.cos(lat) * Math.cos(angle),
+                    globeRadius * Math.sin(lat),
+                    globeRadius * Math.cos(lat) * Math.sin(angle)
+                ));
+            }
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const line = new THREE.Line(geometry, lineMaterial);
+            globeGroup.add(line);
+        }
+
+        // 纬线
+        for (let i = 1; i < 6; i++) {
+            const points = [];
+            const lat = (i / 6) * Math.PI - Math.PI / 2;
+            for (let j = 0; j <= 32; j++) {
+                const lon = (j / 32) * Math.PI * 2;
+                points.push(new THREE.Vector3(
+                    globeRadius * Math.cos(lat) * Math.cos(lon),
+                    globeRadius * Math.sin(lat),
+                    globeRadius * Math.cos(lat) * Math.sin(lon)
+                ));
+            }
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const line = new THREE.Line(geometry, lineMaterial);
+            globeGroup.add(line);
+        }
+
+        // 互联网标识位置 - 户型图上方
+        globeGroup.position.set(7, 8, 3.75);
+        this.scene.add(globeGroup);
+        this.globe = globeGroup;
+
+        // 光猫位置
+        const ontPosition = new THREE.Vector3(7, 0.5, 3.75);
+
+        // 创建发光的曲线连接
+        const curvePoints = [];
+        const startPos = new THREE.Vector3(7, 6, 3.75);
+        const endPos = ontPosition;
+
+        // 创建贝塞尔曲线
+        const midPoint = new THREE.Vector3(
+            (startPos.x + endPos.x) / 2,
+            4,
+            (startPos.z + endPos.z) / 2
+        );
+
+        const curve = new THREE.QuadraticBezierCurve3(startPos, midPoint, endPos);
+        const points = curve.getPoints(50);
+        const curveGeometry = new THREE.BufferGeometry().setFromPoints(points);
+
+        // 发光线材质
+        const glowMaterial = new THREE.LineBasicMaterial({
+            color: 0x00d4ff,
+            transparent: true,
+            opacity: 0.8
+        });
+
+        const connectionLine = new THREE.Line(curveGeometry, glowMaterial);
+        this.scene.add(connectionLine);
+
+        // 添加数据流动画粒子
+        const particleCount = 30;
+        const particleGeometry = new THREE.BufferGeometry();
+        const particlePositions = new Float32Array(particleCount * 3);
+
+        for (let i = 0; i < particleCount; i++) {
+            const t = i / particleCount;
+            const point = curve.getPoint(t);
+            particlePositions[i * 3] = point.x;
+            particlePositions[i * 3 + 1] = point.y;
+            particlePositions[i * 3 + 2] = point.z;
+        }
+
+        particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+
+        const particleMaterial = new THREE.PointsMaterial({
+            color: 0x00ffff,
+            size: 0.15,
+            transparent: true,
+            opacity: 1
+        });
+
+        const particles = new THREE.Points(particleGeometry, particleMaterial);
+        this.scene.add(particles);
+        this.internetParticles = particles;
+        this.connectionCurve = curve;
+    }
+
     createDevices() {
         const deviceData = [
             { pos: [-7, 0.5, -3.75], color: 0x7b2cbf, name: '路由1', signal: 88 },
@@ -628,6 +745,27 @@ class FloorPlan3D {
                 }
             });
         });
+
+        // 地球旋转动画
+        if (this.globe) {
+            this.globe.rotation.y += 0.01;
+        }
+
+        // 数据流动画
+        if (this.internetParticles && this.connectionCurve) {
+            const positions = this.internetParticles.geometry.attributes.position.array;
+            const particleCount = positions.length / 3;
+
+            for (let i = 0; i < particleCount; i++) {
+                let t = (Date.now() * 0.0005 + i / particleCount) % 1;
+                const point = this.connectionCurve.getPoint(t);
+                positions[i * 3] = point.x;
+                positions[i * 3 + 1] = point.y;
+                positions[i * 3 + 2] = point.z;
+            }
+
+            this.internetParticles.geometry.attributes.position.needsUpdate = true;
+        }
 
         this.renderer.render(this.scene, this.camera);
     }
