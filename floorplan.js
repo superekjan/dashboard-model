@@ -547,8 +547,8 @@ class FloorPlan3D {
             globeGroup.add(line);
         }
 
-        // 互联网标识位置 - 户型图上方
-        globeGroup.position.set(7, 8, 3.75);
+        // 互联网标识位置 - 户型图北边外侧
+        globeGroup.position.set(7, 4, -12);
         this.scene.add(globeGroup);
         this.globe = globeGroup;
 
@@ -557,14 +557,14 @@ class FloorPlan3D {
 
         // 创建发光的曲线连接
         const curvePoints = [];
-        const startPos = new THREE.Vector3(7, 6, 3.75);
+        const startPos = new THREE.Vector3(7, 2, -12);
         const endPos = ontPosition;
 
-        // 创建贝塞尔曲线
+        // 创建贝塞尔曲线 - 从北边入户
         const midPoint = new THREE.Vector3(
             (startPos.x + endPos.x) / 2,
-            4,
-            (startPos.z + endPos.z) / 2
+            0.8,
+            (startPos.z + endPos.z) / 2 + 2
         );
 
         const curve = new THREE.QuadraticBezierCurve3(startPos, midPoint, endPos);
