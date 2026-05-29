@@ -594,7 +594,7 @@ class FloorPlan3D {
         this.scene.add(connectionLine);
 
         // 创建长粒子（使用线段）
-        const particleCount = 20;
+        const particleCount = 8;
         this.internetParticleLines = [];
         this.connectionSegments = [];
         this.connectionLinePoints = linePoints;
@@ -627,25 +627,35 @@ class FloorPlan3D {
             this.internetParticleLines.push({ line: particleLine, length: particleLength });
         }
 
-        // 光猫到路由器1的光纤连接
+        // 光猫到路由器1的光纤连接 - 折线走地面，不与其他线重合
         const router1Position = new THREE.Vector3(-7, 0.5, -3.75);
-        this.createFiberConnection(ontPosition, router1Position, 0x00d4ff, 'fiber1');
+        this.createFiberConnection(ontPosition, router1Position, 0x00d4ff, 'fiber1', [
+            new THREE.Vector3(7, 0.15, 3.75),
+            new THREE.Vector3(7, 0.15, -3.75),
+            new THREE.Vector3(-7, 0.15, -3.75),
+            new THREE.Vector3(-7, 0.5, -3.75)
+        ]);
 
-        // 光猫到路由器2的光纤连接
+        // 光猫到路由器2的光纤连接 - 折线走地面
         const router2Position = new THREE.Vector3(-7, 0.5, 3.75);
-        this.createFiberConnection(ontPosition, router2Position, 0x00d4ff, 'fiber2');
-
-        // 光猫到电视的无线连接（虚线，不同颜色）
-        const tvPosition = new THREE.Vector3(3, 0.5, 5);
-        this.createWirelessConnection(ontPosition, tvPosition, 0xff6b6b);
+        this.createFiberConnection(ontPosition, router2Position, 0x00d4ff, 'fiber2', [
+            new THREE.Vector3(7, 0.15, 3.75),
+            new THREE.Vector3(-7, 0.15, 3.75),
+            new THREE.Vector3(-7, 0.5, 3.75)
+        ]);
     }
 
-    createFiberConnection(startPos, endPos, color, name) {
-        // 创建直线光纤连接
-        const linePoints = [
-            startPos.clone(),
-            endPos.clone()
-        ];
+    createFiberConnection(startPos, endPos, color, name, customPath = null) {
+        // 创建直线光纤连接或使用自定义路径
+        let linePoints;
+        if (customPath) {
+            linePoints = customPath;
+        } else {
+            linePoints = [
+                startPos.clone(),
+                endPos.clone()
+            ];
+        }
 
         // 创建折线几何体
         const lineGeometry = new THREE.BufferGeometry();
@@ -677,7 +687,7 @@ class FloorPlan3D {
         this.scene.add(connectionLine);
 
         // 创建长粒子
-        const particleCount = 15;
+        const particleCount = 5;
         const particles = [];
         const segments = [];
 
@@ -712,43 +722,6 @@ class FloorPlan3D {
             this.fiberConnections = {};
         }
         this.fiberConnections[name] = { particles, segments, linePoints };
-    }
-
-    createWirelessConnection(startPos, endPos, color) {
-        // 创建虚线无线连接
-        const curve = new THREE.LineCurve3(startPos, endPos);
-        const points = curve.getPoints(30);
-        const lineMaterial = new THREE.LineDashedMaterial({
-            color: color,
-            dashSize: 0.5,
-            gapSize: 0.3,
-            transparent: true,
-            opacity: 0.6
-        });
-
-        const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
-        const connectionLine = new THREE.Line(lineGeometry, lineMaterial);
-        connectionLine.computeLineDistances();
-        this.scene.add(connectionLine);
-
-        // 添加无线信号动画粒子
-        const particleCount = 10;
-        this.wirelessParticles = [];
-        this.wirelessCurve = curve;
-        this.wirelessStart = startPos.clone();
-        this.wirelessEnd = endPos.clone();
-
-        for (let i = 0; i < particleCount; i++) {
-            const particleGeometry = new THREE.SphereGeometry(0.08, 8, 8);
-            const particleMaterial = new THREE.MeshBasicMaterial({
-                color: color,
-                transparent: true,
-                opacity: 0.8
-            });
-            const particle = new THREE.Mesh(particleGeometry, particleMaterial);
-            this.scene.add(particle);
-            this.wirelessParticles.push(particle);
-        }
     }
 
     getPointOnSegments(t) {
@@ -964,18 +937,6 @@ class FloorPlan3D {
 
                     particle.line.geometry.attributes.position.needsUpdate = true;
                 }
-            }
-        }
-
-        // 无线连接动画（光猫到电视）
-        if (this.wirelessParticles && this.wirelessStart && this.wirelessEnd) {
-            for (let i = 0; i < this.wirelessParticles.length; i++) {
-                const particle = this.wirelessParticles[i];
-                let t = (Date.now() * 0.0005 + i / this.wirelessParticles.length) % 1;
-
-                particle.position.x = this.wirelessStart.x + (this.wirelessEnd.x - this.wirelessStart.x) * t;
-                particle.position.y = this.wirelessStart.y + (this.wirelessEnd.y - this.wirelessStart.y) * t + Math.sin(t * Math.PI) * 1;
-                particle.position.z = this.wirelessStart.z + (this.wirelessEnd.z - this.wirelessStart.z) * t;
             }
         }
 
