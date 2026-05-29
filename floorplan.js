@@ -547,29 +547,41 @@ class FloorPlan3D {
             globeGroup.add(line);
         }
 
-        // 互联网标识位置 - 户型图北边正中间外侧
-        globeGroup.position.set(0, 4, -12);
+        // 互联网标识位置 - 站在地上，底部接触地面
+        globeGroup.position.set(0, 1.2, -12);
         this.scene.add(globeGroup);
         this.globe = globeGroup;
 
         // 光猫位置
         const ontPosition = new THREE.Vector3(7, 0.5, 3.75);
 
-        // 创建发光的曲线连接
-        const curvePoints = [];
-        const startPos = new THREE.Vector3(0, 2, -12);
-        const endPos = ontPosition;
+        // 创建直线折线连接 - 沿着网格走线
+        const linePoints = [
+            new THREE.Vector3(0, 0.15, -12),    // 从地球底部垂直下到地面
+            new THREE.Vector3(7, 0.15, -12),    // 沿地面水平走到x=7
+            new THREE.Vector3(7, 0.15, 3.75),   // 沿地面水平走到z=3.75
+            new THREE.Vector3(7, 0.5, 3.75)     // 垂直向上到光猫
+        ];
 
-        // 创建贝塞尔曲线 - 从北边入户，贴近地面走线
-        const midPoint = new THREE.Vector3(
-            (startPos.x + endPos.x) / 2,
-            0.3,
-            (startPos.z + endPos.z) / 2
-        );
+        // 创建折线几何体
+        const lineGeometry = new THREE.BufferGeometry();
+        const combinedPoints = [];
 
-        const curve = new THREE.QuadraticBezierCurve3(startPos, midPoint, endPos);
-        const points = curve.getPoints(50);
-        const curveGeometry = new THREE.BufferGeometry().setFromPoints(points);
+        for (let i = 0; i < linePoints.length - 1; i++) {
+            const start = linePoints[i];
+            const end = linePoints[i + 1];
+            const steps = 20;
+            for (let j = 0; j <= steps; j++) {
+                const t = j / steps;
+                combinedPoints.push(
+                    start.x + (end.x - start.x) * t,
+                    start.y + (end.y - start.y) * t,
+                    start.z + (end.z - start.z) * t
+                );
+            }
+        }
+
+        lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(combinedPoints, 3));
 
         // 发光线材质
         const glowMaterial = new THREE.LineBasicMaterial({
@@ -578,7 +590,7 @@ class FloorPlan3D {
             opacity: 0.8
         });
 
-        const connectionLine = new THREE.Line(curveGeometry, glowMaterial);
+        const connectionLine = new THREE.Line(lineGeometry, glowMaterial);
         this.scene.add(connectionLine);
 
         // 添加数据流动画粒子
@@ -586,12 +598,21 @@ class FloorPlan3D {
         const particleGeometry = new THREE.BufferGeometry();
         const particlePositions = new Float32Array(particleCount * 3);
 
+        // 预计算各段长度和起始索引
+        const segments = [];
+        let totalLength = 0;
+        for (let i = 0; i < linePoints.length - 1; i++) {
+            const start = linePoints[i];
+            const end = linePoints[i + 1];
+            const length = start.distanceTo(end);
+            segments.push({ start, end, length, offset: totalLength });
+            totalLength += length;
+        }
+
         for (let i = 0; i < particleCount; i++) {
-            const t = i / particleCount;
-            const point = curve.getPoint(t);
-            particlePositions[i * 3] = point.x;
-            particlePositions[i * 3 + 1] = point.y;
-            particlePositions[i * 3 + 2] = point.z;
+            particlePositions[i * 3] = linePoints[0].x;
+            particlePositions[i * 3 + 1] = linePoints[0].y;
+            particlePositions[i * 3 + 2] = linePoints[0].z;
         }
 
         particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
@@ -606,7 +627,32 @@ class FloorPlan3D {
         const particles = new THREE.Points(particleGeometry, particleMaterial);
         this.scene.add(particles);
         this.internetParticles = particles;
-        this.connectionCurve = curve;
+        this.connectionSegments = segments;
+        this.connectionLinePoints = linePoints;
+    }
+
+    getPointOnSegments(t) {
+        if (!this.connectionSegments || this.connectionSegments.length === 0) {
+            return new THREE.Vector3(0, 0, 0);
+        }
+
+        const totalLength = this.connectionSegments[this.connectionSegments.length - 1].offset +
+            this.connectionSegments[this.connectionSegments.length - 1].length;
+
+        const distance = t * totalLength;
+
+        for (const segment of this.connectionSegments) {
+            if (distance <= segment.offset + segment.length) {
+                const localT = (distance - segment.offset) / segment.length;
+                return new THREE.Vector3(
+                    segment.start.x + (segment.end.x - segment.start.x) * localT,
+                    segment.start.y + (segment.end.y - segment.start.y) * localT,
+                    segment.start.z + (segment.end.z - segment.start.z) * localT
+                );
+            }
+        }
+
+        return this.connectionSegments[this.connectionSegments.length - 1].end;
     }
 
     createDevices() {
@@ -751,14 +797,14 @@ class FloorPlan3D {
             this.globe.rotation.y += 0.01;
         }
 
-        // 数据流动画
-        if (this.internetParticles && this.connectionCurve) {
+        // 数据流动画 - 沿折线移动
+        if (this.internetParticles && this.connectionSegments) {
             const positions = this.internetParticles.geometry.attributes.position.array;
             const particleCount = positions.length / 3;
 
             for (let i = 0; i < particleCount; i++) {
-                let t = (Date.now() * 0.0005 + i / particleCount) % 1;
-                const point = this.connectionCurve.getPoint(t);
+                let t = (Date.now() * 0.0003 + i / particleCount) % 1;
+                const point = this.getPointOnSegments(t);
                 positions[i * 3] = point.x;
                 positions[i * 3 + 1] = point.y;
                 positions[i * 3 + 2] = point.z;
