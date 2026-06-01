@@ -427,60 +427,84 @@ class NetworkMonitor {
     async fetchData() {
         this.showLoading();
         
-        const fetchSafe = async (url, timeout = 8000) => {
+        const fetchWithTimeout = async (url, options = {}, timeout = 5000) => {
             const controller = new AbortController();
             const id = setTimeout(() => controller.abort(), timeout);
             try {
-                const response = await fetch(url, { signal: controller.signal });
+                const response = await fetch(url, { ...options, signal: controller.signal });
                 clearTimeout(id);
-                const data = await response.json();
-                return { success: true, data };
+                return response;
             } catch (e) {
                 clearTimeout(id);
-                if (e.name === 'AbortError') {
-                    console.warn(`请求超时: ${url}`);
-                } else {
-                    console.warn(`请求失败: ${url} - ${e.message}`);
-                }
-                return { success: false, data: null };
+                throw e;
             }
         };
         
-        const ontResult = await fetchSafe('http://chinaqoe.net/api/hreport_gm/getqoe_month?useruid=GZ1000010462590');
-        if (ontResult.success && ontResult.data.code === 1) {
-            this.parseOntData(ontResult.data);
+        try {
+            const ontResponse = await fetchWithTimeout('http://chinaqoe.net/api/hreport_gm/getqoe_month?useruid=GZ1000010462590');
+            const ontResult = await ontResponse.json();
+
+            if (ontResult.code === 1) {
+                this.parseOntData(ontResult);
+            }
+        } catch (e) {
+            console.warn('获取光猫数据失败，使用模拟数据:', e.message);
         }
 
-        const router1Info = await fetchSafe('http://chinaqoe.net/api/hreport_ly/getinfo?useruid=PKKQGW');
-        if (router1Info.success && router1Info.data.code === 1) {
-            this.parseRouter1Info(router1Info.data.result);
+        try {
+            const router1InfoRes = await fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/getinfo?useruid=PKKQGW');
+            const router1Info = await router1InfoRes.json();
+            if (router1Info.code === 1) {
+                this.parseRouter1Info(router1Info.result);
+            }
+        } catch (e) {
+            console.warn('获取感知路由PKKQGW信息失败:', e.message);
         }
 
-        const [httpData, videoData, gameData, speedData] = await Promise.all([
-            fetchSafe('http://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=PKKQGW'),
-            fetchSafe('http://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=PKKQGW'),
-            fetchSafe('http://chinaqoe.net/api/hreport_ly/getgame_day?useruid=PKKQGW'),
-            fetchSafe('http://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=PKKQGW')
-        ]);
+        try {
+            const [httpRes, videoRes, gameRes, speedRes] = await Promise.all([
+                fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=PKKQGW'),
+                fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=PKKQGW'),
+                fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/getgame_day?useruid=PKKQGW'),
+                fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=PKKQGW')
+            ]);
 
-        if (httpData.success && videoData.success && gameData.success && speedData.success) {
-            this.parseRouter1Trends({ http: httpData.data, video: videoData.data, game: gameData.data, speed: speedData.data });
+            const httpData = await httpRes.json();
+            const videoData = await videoRes.json();
+            const gameData = await gameRes.json();
+            const speedData = await speedRes.json();
+
+            this.parseRouter1Trends({ http: httpData, video: videoData, game: gameData, speed: speedData });
+        } catch (e) {
+            console.warn('获取感知路由PKKQGW趋势数据失败:', e.message);
         }
 
-        const router2Info = await fetchSafe('http://chinaqoe.net/api/hreport_ly/getinfo?useruid=PKKQRW');
-        if (router2Info.success && router2Info.data.code === 1) {
-            this.parseRouter2Info(router2Info.data.result);
+        try {
+            const router2InfoRes = await fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/getinfo?useruid=PKKQRW');
+            const router2Info = await router2InfoRes.json();
+            if (router2Info.code === 1) {
+                this.parseRouter2Info(router2Info.result);
+            }
+        } catch (e) {
+            console.warn('获取感知路由PKKQRW信息失败:', e.message);
         }
 
-        const [httpData2, videoData2, gameData2, speedData2] = await Promise.all([
-            fetchSafe('http://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=PKKQRW'),
-            fetchSafe('http://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=PKKQRW'),
-            fetchSafe('http://chinaqoe.net/api/hreport_ly/getgame_day?useruid=PKKQRW'),
-            fetchSafe('http://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=PKKQRW')
-        ]);
+        try {
+            const [httpRes2, videoRes2, gameRes2, speedRes2] = await Promise.all([
+                fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=PKKQRW'),
+                fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=PKKQRW'),
+                fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/getgame_day?useruid=PKKQRW'),
+                fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=PKKQRW')
+            ]);
 
-        if (httpData2.success && videoData2.success && gameData2.success && speedData2.success) {
-            this.parseRouter2Trends({ http: httpData2.data, video: videoData2.data, game: gameData2.data, speed: speedData2.data });
+            const httpData2 = await httpRes2.json();
+            const videoData2 = await videoRes2.json();
+            const gameData2 = await gameRes2.json();
+            const speedData2 = await speedRes2.json();
+
+            this.parseRouter2Trends({ http: httpData2, video: videoData2, game: gameData2, speed: speedData2 });
+        } catch (e) {
+            console.warn('获取感知路由PKKQRW趋势数据失败:', e.message);
         }
 
         this.generateMockDevices();
@@ -508,10 +532,10 @@ class NetworkMonitor {
             this.data.router1 = {};
         }
 
-        const http = data.http?.success && data.http?.data?.code === 1 ? data.http.data : null;
-        const video = data.video?.success && data.video?.data?.code === 1 ? data.video.data : null;
-        const game = data.game?.success && data.game?.data?.code === 1 ? data.game.data : null;
-        const speed = data.speed?.success && data.speed?.data?.code === 1 ? data.speed.data : null;
+        const http = data.http?.code === 1 ? data.http : null;
+        const video = data.video?.code === 1 ? data.video : null;
+        const game = data.game?.code === 1 ? data.game : null;
+        const speed = data.speed?.code === 1 ? data.speed : null;
 
         const buildMetricMap = (apiData) => {
             const map = new Map();
@@ -564,10 +588,10 @@ class NetworkMonitor {
             this.data.router2 = {};
         }
 
-        const http = data.http?.success && data.http?.data?.code === 1 ? data.http.data : null;
-        const video = data.video?.success && data.video?.data?.code === 1 ? data.video.data : null;
-        const game = data.game?.success && data.game?.data?.code === 1 ? data.game.data : null;
-        const speed = data.speed?.success && data.speed?.data?.code === 1 ? data.speed.data : null;
+        const http = data.http?.code === 1 ? data.http : null;
+        const video = data.video?.code === 1 ? data.video : null;
+        const game = data.game?.code === 1 ? data.game : null;
+        const speed = data.speed?.code === 1 ? data.speed : null;
 
         const buildMetricMap = (apiData) => {
             const map = new Map();
