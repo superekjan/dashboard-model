@@ -25,14 +25,17 @@ class FloorPlan3D {
         const height = this.container.clientHeight;
 
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x0a0e17);
+        this.scene.background = new THREE.Color(0x060a13);
+        this.scene.fog = new THREE.FogExp2(0x060a13, 0.008);
 
         this.camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
         this.updateCameraPosition();
 
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         this.renderer.setSize(width, height);
         this.renderer.setPixelRatio(window.devicePixelRatio);
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.2;
         this.container.appendChild(this.renderer.domElement);
 
         this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
@@ -44,14 +47,21 @@ class FloorPlan3D {
         this.controls.target.set(0, 0, 0);
         this.controls.autoRotateSpeed = 1.0;
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        const ambientLight = new THREE.AmbientLight(0x8899bb, 0.4);
         this.scene.add(ambientLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        const hemisphereLight = new THREE.HemisphereLight(0x4488cc, 0x224466, 0.3);
+        this.scene.add(hemisphereLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffeedd, 0.7);
         directionalLight.position.set(10, 20, 10);
         this.scene.add(directionalLight);
 
-        const pointLight = new THREE.PointLight(0x00d4ff, 0.3, 50);
+        const fillLight = new THREE.DirectionalLight(0x4488ff, 0.2);
+        fillLight.position.set(-10, 15, -10);
+        this.scene.add(fillLight);
+
+        const pointLight = new THREE.PointLight(0x00c8ff, 0.4, 50);
         pointLight.position.set(0, 10, 0);
         this.scene.add(pointLight);
 
@@ -102,6 +112,88 @@ class FloorPlan3D {
         if (btnZoomOut) {
             btnZoomOut.addEventListener('click', () => this.zoomOut());
         }
+    }
+
+    createLabel(text, color, position, scale = { x: 2, y: 0.5 }) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 256;
+        canvas.height = 96;
+
+        const gradient = ctx.createLinearGradient(0, 0, 256, 0);
+        gradient.addColorStop(0, 'rgba(6, 10, 19, 0.92)');
+        gradient.addColorStop(0.5, 'rgba(10, 16, 32, 0.95)');
+        gradient.addColorStop(1, 'rgba(6, 10, 19, 0.92)');
+        ctx.fillStyle = gradient;
+        this.roundRect(ctx, 0, 0, 256, 80, 8);
+        ctx.fill();
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.7;
+        this.roundRect(ctx, 0, 0, 256, 80, 8);
+        ctx.stroke();
+        ctx.globalAlpha = 1.0;
+
+        const topLineGradient = ctx.createLinearGradient(0, 0, 256, 0);
+        topLineGradient.addColorStop(0, 'transparent');
+        topLineGradient.addColorStop(0.3, color);
+        topLineGradient.addColorStop(0.7, color);
+        topLineGradient.addColorStop(1, 'transparent');
+        ctx.strokeStyle = topLineGradient;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(8, 1);
+        ctx.lineTo(248, 1);
+        ctx.stroke();
+
+        ctx.font = 'bold 44px Arial';
+        ctx.fillStyle = '#eaf4ff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 8;
+        ctx.fillText(text, 128, 42);
+        ctx.shadowBlur = 0;
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+        const sprite = new THREE.Sprite(material);
+        const aspectRatio = canvas.width / canvas.height;
+        sprite.position.set(position.x, position.y, position.z);
+        sprite.scale.set(scale.x, scale.x / aspectRatio, 1);
+        return sprite;
+    }
+
+    createPolylineGeometry(points, steps = 50) {
+        const geometry = new THREE.BufferGeometry();
+        const combinedPoints = [];
+
+        for (let i = 0; i < points.length - 1; i++) {
+            const start = points[i];
+            const end = points[i + 1];
+            for (let j = 0; j <= steps; j++) {
+                const t = j / steps;
+                combinedPoints.push(
+                    start.x + (end.x - start.x) * t,
+                    start.y + (end.y - start.y) * t,
+                    start.z + (end.z - start.z) * t
+                );
+            }
+        }
+
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(combinedPoints, 3));
+        return geometry;
+    }
+
+    createFiberMaterial(color) {
+        return new THREE.LineDashedMaterial({
+            color: color,
+            dashSize: 1.5,
+            gapSize: 0.5,
+            transparent: true,
+            opacity: 0.85
+        });
     }
 
     resetView() {
@@ -174,36 +266,43 @@ class FloorPlan3D {
         this.createBathroom();
         this.createDevices();
         this.createInternetConnection();
+        this.createAmbientParticles();
     }
 
     createFloor() {
         const floorGeometry = new THREE.PlaneGeometry(30, 15);
         const floorMaterial = new THREE.MeshStandardMaterial({
-            color: 0x1a1a2e,
-            roughness: 0.8,
-            metalness: 0.2
+            color: 0x1a2035,
+            roughness: 0.7,
+            metalness: 0.3
         });
         const floor = new THREE.Mesh(floorGeometry, floorMaterial);
         floor.rotation.x = -Math.PI / 2;
         floor.position.y = 0;
         this.scene.add(floor);
 
-        const gridHelper = new THREE.GridHelper(30, 30, 0x00d4ff, 0x00d4ff);
-        gridHelper.position.y = 0.01;
-        gridHelper.material.opacity = 0.1;
-        gridHelper.material.transparent = true;
-        this.scene.add(gridHelper);
+        const outerGlowGeometry = new THREE.PlaneGeometry(34, 19);
+        const outerGlowMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00c8ff,
+            transparent: true,
+            opacity: 0.03,
+            side: THREE.DoubleSide
+        });
+        const outerGlow = new THREE.Mesh(outerGlowGeometry, outerGlowMaterial);
+        outerGlow.rotation.x = -Math.PI / 2;
+        outerGlow.position.y = -0.01;
+        this.scene.add(outerGlow);
     }
 
     createWalls() {
         const wallHeight = 2.0;
         const wallThickness = 0.2;
         const wallMaterial = new THREE.MeshStandardMaterial({
-            color: 0x2d3a4a,
-            roughness: 0.7,
-            metalness: 0.1,
+            color: 0x1e2d4a,
+            roughness: 0.5,
+            metalness: 0.3,
             transparent: true,
-            opacity: 0.3
+            opacity: 0.85
         });
 
         const outerWalls = [
@@ -218,20 +317,19 @@ class FloorPlan3D {
             const mesh = new THREE.Mesh(geometry, wallMaterial);
             mesh.position.set(...wall.pos);
             this.scene.add(mesh);
+
+            const edgeGeometry = new THREE.EdgesGeometry(geometry);
+            const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x2a4a6a, transparent: true, opacity: 0.6 });
+            const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
+            mesh.add(edges);
         });
 
         const innerWalls = [
-            // 左半部分 - 上下分隔卧室1和卧室2
             { pos: [-10, wallHeight / 2, 0], size: [10, wallHeight, wallThickness] },
-            // 左半部分 - 与中间客厅的分隔
             { pos: [-5, wallHeight / 2, 0], size: [wallThickness, wallHeight, 15] },
-            // 右上卧室3 - 与客厅的分隔
             { pos: [5, wallHeight / 2, -4.5], size: [wallThickness, wallHeight, 6] },
-            // 右上卧室3 - 与走道的分隔
             { pos: [10, wallHeight / 2, -1.5], size: [10, wallHeight, wallThickness] },
-            // 右下卧室4 - 与走道的分隔
             { pos: [10, wallHeight / 2, 1.5], size: [10, wallHeight, wallThickness] },
-            // 右下卧室4 - 与客厅的分隔
             { pos: [5, wallHeight / 2, 4.5], size: [wallThickness, wallHeight, 6] }
         ];
 
@@ -242,7 +340,7 @@ class FloorPlan3D {
             this.scene.add(mesh);
 
             const edgeGeometry = new THREE.EdgesGeometry(geometry);
-            const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x00d4ff, transparent: true, opacity: 0.3 });
+            const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x2a4a6a, transparent: true, opacity: 0.6 });
             const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
             mesh.add(edges);
         });
@@ -250,26 +348,23 @@ class FloorPlan3D {
 
     createBeds() {
         const bedMaterial = new THREE.MeshStandardMaterial({
-            color: 0x8B4513,
+            color: 0x2a3a55,
+            roughness: 0.7,
+            metalness: 0.2
+        });
+        const mattressMaterial = new THREE.MeshStandardMaterial({
+            color: 0x3a4a65,
             roughness: 0.8,
             metalness: 0.1
         });
-        const mattressMaterial = new THREE.MeshStandardMaterial({
-            color: 0xF5F5DC,
-            roughness: 0.9,
-            metalness: 0.0
-        });
         const pillowMaterial = new THREE.MeshStandardMaterial({
-            color: 0xFFFFFF,
-            roughness: 0.9,
-            metalness: 0.0
+            color: 0x4a5a75,
+            roughness: 0.8,
+            metalness: 0.1
         });
 
-        // 左上卧室的小床 - 床头向西（左边）贴墙
         this.createBed([-12.5, 0, -3.75], bedMaterial, mattressMaterial, pillowMaterial, 'west');
-        // 左下卧室的小床 - 床头向西（左边）贴墙
         this.createBed([-12.5, 0, 3.75], bedMaterial, mattressMaterial, pillowMaterial, 'west');
-        // 右下卧室的小床 - 床头向东（右边）贴墙
         this.createBed([12.5, 0, 3.75], bedMaterial, mattressMaterial, pillowMaterial, 'east');
     }
 
@@ -313,33 +408,27 @@ class FloorPlan3D {
 
     createSofaSet() {
         const sofaMaterial = new THREE.MeshStandardMaterial({
-            color: 0x2c3e50,
-            roughness: 0.8,
-            metalness: 0.1
-        });
-        const tableMaterial = new THREE.MeshStandardMaterial({
-            color: 0x8B4513,
-            roughness: 0.6,
+            color: 0x1e2d4a,
+            roughness: 0.7,
             metalness: 0.2
         });
+        const tableMaterial = new THREE.MeshStandardMaterial({
+            color: 0x2a3a55,
+            roughness: 0.5,
+            metalness: 0.3
+        });
 
-        // 客厅右上角位置
         const centerX = 2;
         const centerZ = -4;
 
-        // 茶几
         const tableGeometry = new THREE.BoxGeometry(2, 0.4, 1.2);
         const table = new THREE.Mesh(tableGeometry, tableMaterial);
         table.position.set(centerX, 0.2, centerZ);
         this.scene.add(table);
 
-        // 沙发1 - 北边（上方）
         this.createSofa([centerX, 0, centerZ - 1.5], sofaMaterial, 'north');
-        // 沙发2 - 南边（下方）
         this.createSofa([centerX, 0, centerZ + 1.5], sofaMaterial, 'south');
-        // 沙发3 - 西边（左边）
         this.createSofa([centerX - 2, 0, centerZ], sofaMaterial, 'west');
-        // 沙发4 - 东边（右边）
         this.createSofa([centerX + 2, 0, centerZ], sofaMaterial, 'east');
     }
 
@@ -385,24 +474,23 @@ class FloorPlan3D {
 
     createBathroom() {
         const whiteMaterial = new THREE.MeshStandardMaterial({
-            color: 0xffffff,
-            roughness: 0.8,
-            metalness: 0.1
+            color: 0x3a4a65,
+            roughness: 0.6,
+            metalness: 0.2
         });
         const glassMaterial = new THREE.MeshStandardMaterial({
-            color: 0xffffff,
+            color: 0x4a6a8a,
             roughness: 0.3,
             metalness: 0.1,
             transparent: true,
-            opacity: 0.4
+            opacity: 0.35
         });
         const chromeMaterial = new THREE.MeshStandardMaterial({
-            color: 0xffffff,
-            roughness: 0.5,
-            metalness: 0.3
+            color: 0x88aacc,
+            roughness: 0.4,
+            metalness: 0.5
         });
 
-        // 右上角浴室: x=5~15, z=-7.5~-1.5
         const roomCenterX = 10;
         const roomCenterZ = -4.5;
 
@@ -494,26 +582,22 @@ class FloorPlan3D {
     }
 
     createInternetConnection() {
-        // 互联网标识 - 地球模型
         const globeGroup = new THREE.Group();
         const globeRadius = 1.2;
 
-        // 地球主体
         const globeGeometry = new THREE.SphereGeometry(globeRadius, 32, 32);
         const globeMaterial = new THREE.MeshStandardMaterial({
             color: 0x1e90ff,
             roughness: 0.3,
             metalness: 0.5,
             emissive: 0x1e90ff,
-            emissiveIntensity: 0.3
+            emissiveIntensity: 0.4
         });
         const globe = new THREE.Mesh(globeGeometry, globeMaterial);
         globeGroup.add(globe);
 
-        // 地球经纬线
-        const lineMaterial = new THREE.LineBasicMaterial({ color: 0x87ceeb, transparent: true, opacity: 0.5 });
+        const lineMaterial = new THREE.LineBasicMaterial({ color: 0x66bbff, transparent: true, opacity: 0.4 });
 
-        // 经线
         for (let i = 0; i < 6; i++) {
             const points = [];
             const angle = (i / 6) * Math.PI;
@@ -530,7 +614,6 @@ class FloorPlan3D {
             globeGroup.add(line);
         }
 
-        // 纬线
         for (let i = 1; i < 6; i++) {
             const points = [];
             const lat = (i / 6) * Math.PI - Math.PI / 2;
@@ -547,145 +630,68 @@ class FloorPlan3D {
             globeGroup.add(line);
         }
 
-        // 互联网标识位置 - 站在地上，底部接触地面
+        const glowRingGeometry = new THREE.TorusGeometry(globeRadius + 0.3, 0.05, 16, 64);
+        const glowRingMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00c8ff,
+            transparent: true,
+            opacity: 0.4
+        });
+        const glowRing = new THREE.Mesh(glowRingGeometry, glowRingMaterial);
+        glowRing.rotation.x = Math.PI / 2;
+        globeGroup.add(glowRing);
+
+        const outerGlowGeometry = new THREE.SphereGeometry(globeRadius + 0.5, 32, 32);
+        const outerGlowMaterial = new THREE.MeshBasicMaterial({
+            color: 0x1e90ff,
+            transparent: true,
+            opacity: 0.08,
+            side: THREE.BackSide
+        });
+        const outerGlow = new THREE.Mesh(outerGlowGeometry, outerGlowMaterial);
+        globeGroup.add(outerGlow);
+
         globeGroup.position.set(0, 1.2, -12);
         this.scene.add(globeGroup);
         this.globe = globeGroup;
 
-        // 光猫位置
-        const ontPosition = new THREE.Vector3(7, 0.5, 3.75);
+        const internetLabel = this.createLabel('互联网', '#1e90ff', { x: 0, y: 3.5, z: -12 });
+        this.scene.add(internetLabel);
 
-        // 创建直线折线连接 - 沿着网格走线
-        const linePoints = [
-            new THREE.Vector3(0, 0.15, -12),    // 从地球底部垂直下到地面
-            new THREE.Vector3(7, 0.15, -12),    // 沿地面水平走到x=7
-            new THREE.Vector3(7, 0.15, 3.75),   // 沿地面水平走到z=3.75
-            new THREE.Vector3(7, 0.5, 3.75)     // 垂直向上到光猫
-        ];
+        this.createPolylineFiberConnection([
+            new THREE.Vector3(0, 0.15, -12),
+            new THREE.Vector3(7, 0.15, -12),
+            new THREE.Vector3(7, 0.15, 3.75)
+        ], 0x00c8ff, 'internet');
 
-        // 创建折线几何体
-        const lineGeometry = new THREE.BufferGeometry();
-        const combinedPoints = [];
-
-        for (let i = 0; i < linePoints.length - 1; i++) {
-            const start = linePoints[i];
-            const end = linePoints[i + 1];
-            const steps = 20;
-            for (let j = 0; j <= steps; j++) {
-                const t = j / steps;
-                combinedPoints.push(
-                    start.x + (end.x - start.x) * t,
-                    start.y + (end.y - start.y) * t,
-                    start.z + (end.z - start.z) * t
-                );
-            }
-        }
-
-        lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(combinedPoints, 3));
-
-        // 发光线材质
-        const glowMaterial = new THREE.LineBasicMaterial({
-            color: 0x00d4ff,
-            transparent: true,
-            opacity: 0.8
-        });
-
-        const connectionLine = new THREE.Line(lineGeometry, glowMaterial);
-        this.scene.add(connectionLine);
-
-        // 创建长粒子（使用线段）
-        const particleCount = 20;
-        this.internetParticleLines = [];
-        this.connectionSegments = [];
-        this.connectionLinePoints = linePoints;
-
-        // 预计算各段长度
-        let totalLength = 0;
-        for (let i = 0; i < linePoints.length - 1; i++) {
-            const start = linePoints[i];
-            const end = linePoints[i + 1];
-            const length = start.distanceTo(end);
-            this.connectionSegments.push({ start, end, length, offset: totalLength });
-            totalLength += length;
-        }
-
-        // 创建长粒子线段
-        for (let i = 0; i < particleCount; i++) {
-            const particleLength = 0.8; // 粒子长度
-            const particleGeometry = new THREE.BufferGeometry();
-            const positions = new Float32Array(6);
-            particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-            const particleMaterial = new THREE.LineBasicMaterial({
-                color: 0x00ffff,
-                transparent: true,
-                opacity: 1
-            });
-
-            const particleLine = new THREE.Line(particleGeometry, particleMaterial);
-            this.scene.add(particleLine);
-            this.internetParticleLines.push({ line: particleLine, length: particleLength });
-        }
-
-        // 光猫到路由器1的光纤连接（地面上走线）
-        const router1Position = new THREE.Vector3(-7, 0.5, -3.75);
-        this.createFiberConnection(
+        this.createPolylineFiberConnection([
             new THREE.Vector3(7, 0.15, 3.75),
-            new THREE.Vector3(-7, 0.15, -3.75),
-            0x00d4ff, 'fiber1'
-        );
+            new THREE.Vector3(-7, 0.15, 3.75)
+        ], 0x00c8ff, 'fiber2');
 
-        // 光猫到路由器2的光纤连接（地面上走线）
-        const router2Position = new THREE.Vector3(-7, 0.5, 3.75);
-        this.createFiberConnection(
+        this.createPolylineFiberConnection([
             new THREE.Vector3(7, 0.15, 3.75),
-            new THREE.Vector3(-7, 0.15, 3.75),
-            0x00d4ff, 'fiber2'
-        );
+            new THREE.Vector3(-2, 0.15, 3.75),
+            new THREE.Vector3(-2, 0.15, -3.75),
+            new THREE.Vector3(-7, 0.15, -3.75)
+        ], 0x00c8ff, 'fiber1');
     }
 
     createFiberConnection(startPos, endPos, color, name) {
-        // 创建直线光纤连接
         const linePoints = [
             startPos.clone(),
             endPos.clone()
         ];
 
-        // 创建折线几何体
-        const lineGeometry = new THREE.BufferGeometry();
-        const combinedPoints = [];
-
-        for (let i = 0; i < linePoints.length - 1; i++) {
-            const start = linePoints[i];
-            const end = linePoints[i + 1];
-            const steps = 20;
-            for (let j = 0; j <= steps; j++) {
-                const t = j / steps;
-                combinedPoints.push(
-                    start.x + (end.x - start.x) * t,
-                    start.y + (end.y - start.y) * t,
-                    start.z + (end.z - start.z) * t
-                );
-            }
-        }
-
-        lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(combinedPoints, 3));
-
-        const glowMaterial = new THREE.LineBasicMaterial({
-            color: color,
-            transparent: true,
-            opacity: 0.8
-        });
+        const lineGeometry = this.createPolylineGeometry(linePoints, 100);
+        const glowMaterial = this.createFiberMaterial(color);
 
         const connectionLine = new THREE.Line(lineGeometry, glowMaterial);
+        connectionLine.computeLineDistances();
         this.scene.add(connectionLine);
 
-        // 创建长粒子
-        const particleCount = 5;
-        const particles = [];
-        const segments = [];
-
+        // 计算总长度
         let totalLength = 0;
+        const segments = [];
         for (let i = 0; i < linePoints.length - 1; i++) {
             const start = linePoints[i];
             const end = linePoints[i + 1];
@@ -694,144 +700,320 @@ class FloorPlan3D {
             totalLength += length;
         }
 
-        for (let i = 0; i < particleCount; i++) {
-            const particleLength = 0.6;
-            const particleGeometry = new THREE.BufferGeometry();
-            const positions = new Float32Array(6);
-            particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-            const particleMaterial = new THREE.LineBasicMaterial({
-                color: 0x00ffff,
-                transparent: true,
-                opacity: 1
-            });
-
-            const particleLine = new THREE.Line(particleGeometry, particleMaterial);
-            this.scene.add(particleLine);
-            particles.push({ line: particleLine, length: particleLength });
-        }
-
         // 存储以用于动画
         if (!this.fiberConnections) {
             this.fiberConnections = {};
         }
-        this.fiberConnections[name] = { particles, segments, linePoints };
+        this.fiberConnections[name] = {
+            line: connectionLine,
+            material: glowMaterial,
+            baseDashSize: 1.5,
+            segments: segments,
+            totalLength: totalLength
+        };
     }
 
-    getPointOnSegments(t) {
-        if (!this.connectionSegments || this.connectionSegments.length === 0) {
-            return new THREE.Vector3(0, 0, 0);
+    createPolylineFiberConnection(points, color, name) {
+        const lineGeometry = this.createPolylineGeometry(points, 50);
+        const glowMaterial = this.createFiberMaterial(color);
+
+        const connectionLine = new THREE.Line(lineGeometry, glowMaterial);
+        connectionLine.computeLineDistances();
+        this.scene.add(connectionLine);
+
+        let totalLength = 0;
+        const segments = [];
+        for (let i = 0; i < points.length - 1; i++) {
+            const start = points[i];
+            const end = points[i + 1];
+            const length = start.distanceTo(end);
+            segments.push({ start, end, length, offset: totalLength });
+            totalLength += length;
         }
 
-        const totalLength = this.connectionSegments[this.connectionSegments.length - 1].offset +
-            this.connectionSegments[this.connectionSegments.length - 1].length;
-
-        const distance = t * totalLength;
-
-        for (const segment of this.connectionSegments) {
-            if (distance <= segment.offset + segment.length) {
-                const localT = (distance - segment.offset) / segment.length;
-                return new THREE.Vector3(
-                    segment.start.x + (segment.end.x - segment.start.x) * localT,
-                    segment.start.y + (segment.end.y - segment.start.y) * localT,
-                    segment.start.z + (segment.end.z - segment.start.z) * localT
-                );
-            }
+        if (!this.fiberConnections) {
+            this.fiberConnections = {};
         }
-
-        return this.connectionSegments[this.connectionSegments.length - 1].end;
+        this.fiberConnections[name] = {
+            line: connectionLine,
+            material: glowMaterial,
+            baseDashSize: 1.5,
+            segments: segments,
+            totalLength: totalLength
+        };
     }
 
     createDevices() {
         const deviceData = [
-            { pos: [-7, 0.5, -3.75], color: 0x7b2cbf, name: '路由1', signal: 88 },
-            { pos: [-7, 0.5, 3.75], color: 0x7b2cbf, name: '路由2', signal: 82 },
-            { pos: [3, 0.5, 5], color: 0xff6b6b, name: '电视', signal: 70 },
-            { pos: [7, 0.5, 3.75], color: 0x00d4ff, name: '光猫', signal: 95 }
+            { pos: [-7, 0, -3.75], color: 0x7b2cbf, name: '路由1', signal: 88, type: 'router' },
+            { pos: [-7, 0, 3.75], color: 0x7b2cbf, name: '路由2', signal: 82, type: 'router' },
+            { pos: [4.7, 0, 5], color: 0x00ff00, name: '电视', signal: 70, type: 'tv' },
+            { pos: [7, 0, 3.75], color: 0x00d4ff, name: '光猫', signal: 95, type: 'ont' }
         ];
 
         deviceData.forEach(device => {
-            this.add3DDevice(device.pos, device.color, device.name, device.signal);
+            this.add3DDevice(device.pos, device.color, device.name, device.signal, device.type);
         });
     }
 
-    add3DDevice(position, color, name, signal) {
+    createRouterModel(color) {
+        const routerGroup = new THREE.Group();
+
+        const baseGeometry = new THREE.BoxGeometry(1.5, 0.2, 1);
+        const baseMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1a2540,
+            roughness: 0.3,
+            metalness: 0.5
+        });
+        const base = new THREE.Mesh(baseGeometry, baseMaterial);
+        base.position.y = 0.1;
+        routerGroup.add(base);
+
+        const topGeometry = new THREE.BoxGeometry(1.4, 0.1, 0.9);
+        const topMaterial = new THREE.MeshStandardMaterial({
+            color: 0x2a3a55,
+            roughness: 0.4,
+            metalness: 0.4
+        });
+        const top = new THREE.Mesh(topGeometry, topMaterial);
+        top.position.y = 0.25;
+        routerGroup.add(top);
+
+        const antennaMaterial = new THREE.MeshStandardMaterial({
+            color: 0x3a4a65,
+            roughness: 0.5,
+            metalness: 0.3
+        });
+
+        const antennaPositions = [
+            [-0.5, 0, -0.3],
+            [0.5, 0, -0.3],
+            [-0.5, 0, 0.3],
+            [0.5, 0, 0.3]
+        ];
+
+        antennaPositions.forEach(pos => {
+            const antennaGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.6, 8);
+            const antenna = new THREE.Mesh(antennaGeometry, antennaMaterial);
+            antenna.position.set(pos[0], 0.6, pos[2]);
+            routerGroup.add(antenna);
+
+            // 天线顶部小球
+            const ballGeometry = new THREE.SphereGeometry(0.05, 8, 8);
+            const ball = new THREE.Mesh(ballGeometry, antennaMaterial);
+            ball.position.set(pos[0], 0.92, pos[2]);
+            routerGroup.add(ball);
+        });
+
+        // LED指示灯
+        const ledMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00c8ff,
+            transparent: true,
+            opacity: 0.8
+        });
+        const ledGeometry = new THREE.SphereGeometry(0.05, 8, 8);
+
+        for (let i = 0; i < 3; i++) {
+            const led = new THREE.Mesh(ledGeometry, ledMaterial);
+            led.position.set(-0.3 + i * 0.3, 0.31, 0.35);
+            routerGroup.add(led);
+        }
+
+        // 信号覆盖区域 - 科技感动态效果
+        const signalBaseColor = 0x00c8ff;
+        const signalRadii = [1.5, 2.5, 3.5];
+        const signalEffects = [];
+
+        signalRadii.forEach((radius, index) => {
+            // 波纹填充层
+            const fillGeometry = new THREE.CircleGeometry(radius, 64);
+            const fillMaterial = new THREE.MeshBasicMaterial({
+                color: signalBaseColor,
+                transparent: true,
+                opacity: 0.08 - index * 0.02,
+                side: THREE.DoubleSide
+            });
+            const fill = new THREE.Mesh(fillGeometry, fillMaterial);
+            fill.rotation.x = -Math.PI / 2;
+            fill.position.y = 0.02 + index * 0.02;
+            routerGroup.add(fill);
+
+            // 旋转虚线边框
+            const dashBorderGeometry = new THREE.RingGeometry(radius - 0.03, radius, 64);
+            const dashBorderMaterial = new THREE.MeshBasicMaterial({
+                color: signalBaseColor,
+                transparent: true,
+                opacity: 0.4 - index * 0.1,
+                side: THREE.DoubleSide,
+                transparent: true
+            });
+            const dashBorder = new THREE.Mesh(dashBorderGeometry, dashBorderMaterial);
+            dashBorder.rotation.x = -Math.PI / 2;
+            dashBorder.position.y = 0.04 + index * 0.02;
+            routerGroup.add(dashBorder);
+
+            // 保存引用用于动画
+            signalEffects.push({
+                fill: fill,
+                fillMaterial: fillMaterial,
+                dashBorder: dashBorder,
+                dashBorderMaterial: dashBorderMaterial,
+                radius: radius,
+                index: index,
+                phase: index * Math.PI * 0.66
+            });
+        });
+
+        // 添加脉冲波纹效果
+        for (let i = 0; i < 3; i++) {
+            const pulseRadius = 1.5 + i * 1;
+            const pulseGeometry = new THREE.RingGeometry(pulseRadius - 0.02, pulseRadius + 0.02, 64);
+            const pulseMaterial = new THREE.MeshBasicMaterial({
+                color: signalBaseColor,
+                transparent: true,
+                opacity: 0,
+                side: THREE.DoubleSide
+            });
+            const pulse = new THREE.Mesh(pulseGeometry, pulseMaterial);
+            pulse.rotation.x = -Math.PI / 2;
+            pulse.position.y = 0.05 + i * 0.02;
+            routerGroup.add(pulse);
+
+            signalEffects.push({
+                pulse: pulse,
+                pulseMaterial: pulseMaterial,
+                pulseIndex: i,
+                phase: i * 0.5
+            });
+        }
+
+        routerGroup.userData.signalEffects = signalEffects;
+
+        return routerGroup;
+    }
+
+    createTVModel(color) {
+        const tvGroup = new THREE.Group();
+
+        const standGeometry = new THREE.BoxGeometry(0.8, 0.1, 0.4);
+        const standMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1a2540,
+            roughness: 0.5,
+            metalness: 0.4
+        });
+        const stand = new THREE.Mesh(standGeometry, standMaterial);
+        stand.position.y = 0.05;
+        tvGroup.add(stand);
+
+        const bracketGeometry = new THREE.BoxGeometry(0.1, 0.3, 0.1);
+        const bracket = new THREE.Mesh(bracketGeometry, standMaterial);
+        bracket.position.set(0, 0.25, -0.1);
+        tvGroup.add(bracket);
+
+        const frameGeometry = new THREE.BoxGeometry(2, 1.2, 0.1);
+        const frameMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1a2540,
+            roughness: 0.3,
+            metalness: 0.5
+        });
+        const frame = new THREE.Mesh(frameGeometry, frameMaterial);
+        frame.position.y = 0.9;
+        tvGroup.add(frame);
+
+        const screenGeometry = new THREE.BoxGeometry(1.8, 1, 0.05);
+        const screenMaterial = new THREE.MeshStandardMaterial({
+            color: 0x88ccff,
+            emissive: 0x88ccff,
+            emissiveIntensity: 0.4,
+            roughness: 0.1,
+            metalness: 0.2
+        });
+        const screen = new THREE.Mesh(screenGeometry, screenMaterial);
+        screen.position.set(0, 0.9, 0.03);
+        tvGroup.add(screen);
+
+        tvGroup.rotation.y = -Math.PI / 2;
+
+        return tvGroup;
+    }
+
+    createONTModel(color) {
+        const ontGroup = new THREE.Group();
+
+        const mainGeometry = new THREE.BoxGeometry(1.8, 0.25, 1.2);
+        const mainMaterial = new THREE.MeshStandardMaterial({
+            color: 0x2a3a55,
+            roughness: 0.4,
+            metalness: 0.4
+        });
+        const main = new THREE.Mesh(mainGeometry, mainMaterial);
+        main.position.y = 0.125;
+        ontGroup.add(main);
+
+        const panelGeometry = new THREE.BoxGeometry(1.6, 0.15, 0.05);
+        const panelMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1a2540,
+            roughness: 0.5,
+            metalness: 0.3
+        });
+        const panel = new THREE.Mesh(panelGeometry, panelMaterial);
+        panel.position.set(0, 0.08, 0.58);
+        ontGroup.add(panel);
+
+        // LED指示灯
+        const ledMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00c8ff,
+            transparent: true,
+            opacity: 0.8
+        });
+        const ledGeometry = new THREE.SphereGeometry(0.03, 8, 8);
+
+        const ledColors = [0x00c8ff, 0x00c8ff, 0x34d399, 0x00c8ff];
+        ledColors.forEach((ledColor, i) => {
+            const ledMat = ledMaterial.clone();
+            ledMat.color.setHex(ledColor);
+            const led = new THREE.Mesh(ledGeometry, ledMat);
+            led.position.set(-0.5 + i * 0.3, 0.08, 0.61);
+            ontGroup.add(led);
+        });
+
+        // 端口指示（背面）
+        const portGeometry = new THREE.BoxGeometry(0.15, 0.08, 0.02);
+        const portMaterial = new THREE.MeshStandardMaterial({
+            color: 0x3a4a65,
+            roughness: 0.6,
+            metalness: 0.4
+        });
+
+        for (let i = 0; i < 4; i++) {
+            const port = new THREE.Mesh(portGeometry, portMaterial);
+            port.position.set(-0.5 + i * 0.3, 0.05, -0.59);
+            ontGroup.add(port);
+        }
+
+        return ontGroup;
+    }
+
+    add3DDevice(position, color, name, signal, type = 'default') {
         const group = new THREE.Group();
         group.position.set(...position);
 
-        const sphereGeometry = new THREE.SphereGeometry(0.4, 32, 32);
-        const sphereMaterial = new THREE.MeshStandardMaterial({
-            color: color,
-            emissive: color,
-            emissiveIntensity: 0.5,
-            roughness: 0.3,
-            metalness: 0.7
-        });
-        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-        group.add(sphere);
-
-        const ringGeometry = new THREE.RingGeometry(0.6, 0.8, 32);
-        const ringMaterial = new THREE.MeshBasicMaterial({
-            color: color,
-            transparent: true,
-            opacity: 0.4,
-            side: THREE.DoubleSide
-        });
-        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-        ring.rotation.x = -Math.PI / 2;
-        ring.position.y = -0.3;
-        group.add(ring);
-
-        const signalStrength = Math.floor(signal / 25);
-        for (let i = 0; i < 4; i++) {
-            const arcRadius = 0.6 + i * 0.25;
-            const arcGeometry = new THREE.TorusGeometry(arcRadius, 0.03, 8, 16, Math.PI * 0.5);
-            const arcMaterial = new THREE.MeshBasicMaterial({
-                color: i < signalStrength ? color : 0x333333,
-                transparent: true,
-                opacity: i < signalStrength ? 0.8 : 0.2
-            });
-            const arc = new THREE.Mesh(arcGeometry, arcMaterial);
-            arc.rotation.x = -Math.PI / 2;
-            arc.rotation.z = -Math.PI * 0.25;
-            arc.position.y = -0.3;
-            group.add(arc);
+        if (type === 'router') {
+            const router = this.createRouterModel(color);
+            group.add(router);
+        } else if (type === 'tv') {
+            const tv = this.createTVModel(color);
+            group.add(tv);
+        } else if (type === 'ont') {
+            const ont = this.createONTModel(color);
+            group.add(ont);
         }
 
-        const labelCanvas = document.createElement('canvas');
-        const ctx = labelCanvas.getContext('2d');
-        labelCanvas.width = 256;
-        labelCanvas.height = 128;
-
-        ctx.fillStyle = 'rgba(13, 20, 36, 0.9)';
-        this.roundRect(ctx, 0, 0, 256, 80, 10);
-        ctx.fill();
-
-        ctx.strokeStyle = '#00d4ff';
-        ctx.lineWidth = 3;
-        this.roundRect(ctx, 0, 0, 256, 80, 10);
-        ctx.stroke();
-
-        ctx.font = 'bold 36px Arial';
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        ctx.fillText(name, 128, 35);
-
-        ctx.font = 'bold 28px Arial';
-        ctx.fillStyle = color.toString(16).padStart(6, '0');
-        ctx.fillText(`信号: ${signal}%`, 128, 65);
-
-        const labelTexture = new THREE.CanvasTexture(labelCanvas);
-        const labelMaterial = new THREE.SpriteMaterial({ map: labelTexture, transparent: true });
-        const label = new THREE.Sprite(labelMaterial);
-        label.position.y = 1.5;
-        label.scale.set(2, 1, 1);
+        const label = this.createLabel(name, '#00c8ff', { x: 0, y: 2.5, z: 0 });
         group.add(label);
 
         this.devices.push({
             group: group,
-            sphere: sphere,
-            ring: ring,
             signal: signal,
             baseColor: color
         });
@@ -860,108 +1042,114 @@ class FloorPlan3D {
         });
     }
 
+    createAmbientParticles() {
+        const particleCount = 80;
+        const positions = new Float32Array(particleCount * 3);
+        const sizes = new Float32Array(particleCount);
+
+        for (let i = 0; i < particleCount; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 35;
+            positions[i * 3 + 1] = Math.random() * 8;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 20;
+            sizes[i] = Math.random() * 0.08 + 0.02;
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+        const material = new THREE.PointsMaterial({
+            color: 0x00c8ff,
+            size: 0.06,
+            transparent: true,
+            opacity: 0.4,
+            sizeAttenuation: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+
+        this.ambientParticles = new THREE.Points(geometry, material);
+        this.scene.add(this.ambientParticles);
+    }
+
     animate() {
         this.animationId = requestAnimationFrame(() => this.animate());
 
         this.controls.update();
 
-        const time = Date.now() * 0.001;
-
-        this.devices.forEach((device, index) => {
-            device.sphere.position.y = Math.sin(time + index) * 0.1;
-            device.ring.scale.set(1 + Math.sin(time * 2 + index) * 0.1, 1 + Math.sin(time * 2 + index) * 0.1, 1);
-            device.ring.material.opacity = 0.3 + Math.sin(time * 2 + index) * 0.1;
-
-            device.group.children.forEach(child => {
-                if (child.type === 'Mesh' && child.geometry.type === 'TorusGeometry') {
-                    child.rotation.z = time + index;
-                }
-            });
-        });
-
-        // 地球旋转动画
         if (this.globe) {
             this.globe.rotation.y += 0.01;
         }
 
-        // 互联网入口长粒子动画
-        if (this.internetParticleLines && this.connectionSegments) {
-            for (let i = 0; i < this.internetParticleLines.length; i++) {
-                const particle = this.internetParticleLines[i];
-                let t = (Date.now() * 0.0003 + i / this.internetParticleLines.length) % 1;
-
-                const startPoint = this.getPointOnSegments(t);
-                const endPoint = this.getPointOnSegments((t - particle.length / this.getTotalLength()) % 1);
-
-                const positions = particle.line.geometry.attributes.position.array;
-                positions[0] = startPoint.x;
-                positions[1] = startPoint.y;
-                positions[2] = startPoint.z;
-                positions[3] = endPoint.x;
-                positions[4] = endPoint.y;
-                positions[5] = endPoint.z;
-
-                particle.line.geometry.attributes.position.needsUpdate = true;
+        if (this.ambientParticles) {
+            const positions = this.ambientParticles.geometry.attributes.position.array;
+            const time = Date.now() * 0.0005;
+            for (let i = 0; i < positions.length; i += 3) {
+                positions[i + 1] += Math.sin(time + i) * 0.002;
+                if (positions[i + 1] > 8) positions[i + 1] = 0;
+                if (positions[i + 1] < 0) positions[i + 1] = 8;
             }
+            this.ambientParticles.geometry.attributes.position.needsUpdate = true;
         }
 
-        // 光纤连接动画（光猫到路由器）
         if (this.fiberConnections) {
+            const dashOffset = (Date.now() * 0.003) % 20;
+
             for (const name in this.fiberConnections) {
                 const conn = this.fiberConnections[name];
-                if (!conn.particles || !conn.segments) continue;
+                if (!conn.material) continue;
 
-                const totalLength = conn.segments[conn.segments.length - 1].offset +
-                    conn.segments[conn.segments.length - 1].length;
-
-                for (let i = 0; i < conn.particles.length; i++) {
-                    const particle = conn.particles[i];
-                    let t = (Date.now() * 0.00025 + i / conn.particles.length) % 1;
-
-                    const startPoint = this.getPointOnFiber(t, conn.segments, totalLength);
-                    const endPoint = this.getPointOnFiber((t - particle.length / totalLength + 1) % 1, conn.segments, totalLength);
-
-                    const positions = particle.line.geometry.attributes.position.array;
-                    positions[0] = startPoint.x;
-                    positions[1] = startPoint.y;
-                    positions[2] = startPoint.z;
-                    positions[3] = endPoint.x;
-                    positions[4] = endPoint.y;
-                    positions[5] = endPoint.z;
-
-                    particle.line.geometry.attributes.position.needsUpdate = true;
-                }
+                conn.material.dashSize = conn.baseDashSize + dashOffset;
             }
         }
+
+        // 路由器信号区域动态效果
+        const time = Date.now() * 0.001;
+        this.devices.forEach(device => {
+            if (!device.group) return;
+
+            let signalEffects = null;
+
+            // 从 router 类型的设备中获取 signalEffects
+            device.group.children.forEach(child => {
+                if (child.userData && child.userData.signalEffects) {
+                    signalEffects = child.userData.signalEffects;
+                }
+            });
+
+            if (signalEffects) {
+                signalEffects.forEach((effect, idx) => {
+                    // 呼吸灯效果 - 填充层透明度变化
+                    if (effect.fillMaterial) {
+                        const breathOpacity = (0.08 - effect.index * 0.02) * (0.5 + 0.5 * Math.sin(time * 2 + effect.phase));
+                        effect.fillMaterial.opacity = Math.max(0.02, breathOpacity);
+                    }
+
+                    // 边框脉冲效果
+                    if (effect.dashBorderMaterial) {
+                        const borderOpacity = (0.4 - effect.index * 0.1) * (0.5 + 0.5 * Math.sin(time * 3 + effect.phase));
+                        effect.dashBorderMaterial.opacity = Math.max(0.1, borderOpacity);
+                    }
+
+                    // 脉冲波纹扩散效果
+                    if (effect.pulse && effect.pulseMaterial) {
+                        const pulseTime = (time * 0.8 + effect.phase) % 3;
+                        const pulseProgress = pulseTime / 3;
+
+                        if (pulseProgress < 0.8) {
+                            effect.pulseMaterial.opacity = (0.5 - pulseProgress * 0.5) * (1 - pulseProgress);
+                        } else {
+                            effect.pulseMaterial.opacity = 0;
+                        }
+
+                        const scale = 1 + pulseProgress * 0.5;
+                        effect.pulse.scale.set(scale, scale, 1);
+                    }
+                });
+            }
+        });
 
         this.renderer.render(this.scene, this.camera);
-    }
-
-    getTotalLength() {
-        if (!this.connectionSegments || this.connectionSegments.length === 0) return 1;
-        return this.connectionSegments[this.connectionSegments.length - 1].offset +
-            this.connectionSegments[this.connectionSegments.length - 1].length;
-    }
-
-    getPointOnFiber(t, segments, totalLength) {
-        if (!segments || segments.length === 0) {
-            return new THREE.Vector3(0, 0, 0);
-        }
-
-        const distance = t * totalLength;
-
-        for (const segment of segments) {
-            if (distance <= segment.offset + segment.length) {
-                const localT = (distance - segment.offset) / segment.length;
-                return new THREE.Vector3(
-                    segment.start.x + (segment.end.x - segment.start.x) * localT,
-                    segment.start.y + (segment.end.y - segment.start.y) * localT,
-                    segment.start.z + (segment.end.z - segment.start.z) * localT
-                );
-            }
-        }
-
-        return segments[segments.length - 1].end;
     }
 
     handleResize() {

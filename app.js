@@ -8,8 +8,7 @@ const LibLoader = {
         this.loaded = true;
 
         const libs = [
-            { name: 'echarts', check: 'echarts', url: 'https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js' },
-            { name: 'three', check: 'THREE', url: 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js' }
+            { name: 'echarts', check: 'echarts', url: 'https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js' }
         ];
 
         for (const lib of libs) {
@@ -25,7 +24,10 @@ const LibLoader = {
             const script = document.createElement('script');
             script.src = src;
             script.onload = resolve;
-            script.onerror = reject;
+            script.onerror = () => {
+                console.warn('库加载失败:', src, '- 使用本地缓存或继续运行');
+                resolve();
+            };
             document.head.appendChild(script);
         });
     }
@@ -66,16 +68,43 @@ class NetworkMonitor {
         try {
             await LibLoader.load();
             this.initTime();
-            this.initOntTrendChart();
-            this.initCommunityCompareChart();
-            this.initRouter1TrendChart();
-            this.initRouter2TrendChart();
-            this.floorPlan3d = new FloorPlan3D('floorPlan3d');
+            
+            try {
+                this.initOntTrendChart();
+            } catch (e) {
+                console.warn('初始化光猫趋势图失败:', e);
+            }
+            
+            try {
+                this.initCommunityCompareChart();
+            } catch (e) {
+                console.warn('初始化小区对比图失败:', e);
+            }
+            
+            try {
+                this.initRouter1TrendChart();
+            } catch (e) {
+                console.warn('初始化路由1趋势图失败:', e);
+            }
+            
+            try {
+                this.initRouter2TrendChart();
+            } catch (e) {
+                console.warn('初始化路由2趋势图失败:', e);
+            }
+            
+            try {
+                this.floorPlan3d = new FloorPlan3D('floorPlan3d');
+            } catch (e) {
+                console.warn('初始化3D户型图失败:', e);
+            }
+            
             this.initEventListeners();
             await this.fetchData();
             this.startAutoRefresh();
         } catch (e) {
             console.error('初始化失败:', e);
+            this.hideLoading();
         }
     }
 
@@ -103,20 +132,20 @@ class NetworkMonitor {
             },
             tooltip: {
                 trigger: 'axis',
-                backgroundColor: 'rgba(13, 20, 36, 0.95)',
-                borderColor: '#00d4ff',
+                backgroundColor: 'rgba(6, 10, 19, 0.95)',
+                borderColor: '#00c8ff',
                 textStyle: {
-                    color: '#fff'
+                    color: '#eaf4ff'
                 }
             },
             xAxis: {
                 type: 'category',
                 data: [],
                 axisLine: {
-                    lineStyle: { color: 'rgba(0, 212, 255, 0.2)' }
+                    lineStyle: { color: 'rgba(0, 200, 255, 0.15)' }
                 },
                 axisLabel: {
-                    color: 'rgba(255, 255, 255, 0.5)',
+                    color: 'rgba(180, 200, 230, 0.5)',
                     fontSize: 9
                 }
             },
@@ -125,14 +154,14 @@ class NetworkMonitor {
                 min: 0,
                 max: 100,
                 axisLine: {
-                    lineStyle: { color: 'rgba(0, 212, 255, 0.2)' }
+                    lineStyle: { color: 'rgba(0, 200, 255, 0.15)' }
                 },
                 axisLabel: {
-                    color: 'rgba(255, 255, 255, 0.5)',
+                    color: 'rgba(180, 200, 230, 0.5)',
                     fontSize: 9
                 },
                 splitLine: {
-                    lineStyle: { color: 'rgba(0, 212, 255, 0.1)' }
+                    lineStyle: { color: 'rgba(0, 200, 255, 0.06)' }
                 }
             },
             series: [
@@ -144,16 +173,16 @@ class NetworkMonitor {
                     symbol: 'circle',
                     symbolSize: 5,
                     lineStyle: {
-                        color: '#7b2cbf',
+                        color: '#8b5cf6',
                         width: 2
                     },
                     itemStyle: {
-                        color: '#7b2cbf'
+                        color: '#8b5cf6'
                     },
                     areaStyle: {
                         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                            { offset: 0, color: 'rgba(123, 44, 191, 0.3)' },
-                            { offset: 1, color: 'rgba(123, 44, 191, 0)' }
+                            { offset: 0, color: 'rgba(139, 92, 246, 0.25)' },
+                            { offset: 1, color: 'rgba(139, 92, 246, 0)' }
                         ])
                     }
                 }
@@ -176,20 +205,20 @@ class NetworkMonitor {
             },
             tooltip: {
                 trigger: 'axis',
-                backgroundColor: 'rgba(13, 20, 36, 0.95)',
-                borderColor: '#00d4ff',
+                backgroundColor: 'rgba(6, 10, 19, 0.95)',
+                borderColor: '#00c8ff',
                 textStyle: {
-                    color: '#fff'
+                    color: '#eaf4ff'
                 }
             },
             xAxis: {
                 type: 'category',
                 data: [],
                 axisLine: {
-                    lineStyle: { color: 'rgba(0, 212, 255, 0.2)' }
+                    lineStyle: { color: 'rgba(0, 200, 255, 0.15)' }
                 },
                 axisLabel: {
-                    color: 'rgba(255, 255, 255, 0.5)',
+                    color: 'rgba(180, 200, 230, 0.5)',
                     fontSize: 9
                 }
             },
@@ -198,14 +227,14 @@ class NetworkMonitor {
                 min: 0,
                 max: 100,
                 axisLine: {
-                    lineStyle: { color: 'rgba(0, 212, 255, 0.2)' }
+                    lineStyle: { color: 'rgba(0, 200, 255, 0.15)' }
                 },
                 axisLabel: {
-                    color: 'rgba(255, 255, 255, 0.5)',
+                    color: 'rgba(180, 200, 230, 0.5)',
                     fontSize: 9
                 },
                 splitLine: {
-                    lineStyle: { color: 'rgba(0, 212, 255, 0.1)' }
+                    lineStyle: { color: 'rgba(0, 200, 255, 0.06)' }
                 }
             },
             series: [
@@ -217,16 +246,16 @@ class NetworkMonitor {
                     symbol: 'circle',
                     symbolSize: 5,
                     lineStyle: {
-                        color: '#ff6b6b',
+                        color: '#f43f5e',
                         width: 2
                     },
                     itemStyle: {
-                        color: '#ff6b6b'
+                        color: '#f43f5e'
                     },
                     areaStyle: {
                         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                            { offset: 0, color: 'rgba(255, 107, 107, 0.3)' },
-                            { offset: 1, color: 'rgba(255, 107, 107, 0)' }
+                            { offset: 0, color: 'rgba(244, 63, 94, 0.25)' },
+                            { offset: 1, color: 'rgba(244, 63, 94, 0)' }
                         ])
                     }
                 }
@@ -249,20 +278,20 @@ class NetworkMonitor {
             },
             tooltip: {
                 trigger: 'axis',
-                backgroundColor: 'rgba(13, 20, 36, 0.95)',
-                borderColor: '#00d4ff',
+                backgroundColor: 'rgba(6, 10, 19, 0.95)',
+                borderColor: '#00c8ff',
                 textStyle: {
-                    color: '#fff'
+                    color: '#eaf4ff'
                 }
             },
             xAxis: {
                 type: 'category',
                 data: [],
                 axisLine: {
-                    lineStyle: { color: 'rgba(0, 212, 255, 0.2)' }
+                    lineStyle: { color: 'rgba(0, 200, 255, 0.15)' }
                 },
                 axisLabel: {
-                    color: 'rgba(255, 255, 255, 0.5)',
+                    color: 'rgba(180, 200, 230, 0.5)',
                     fontSize: 9
                 }
             },
@@ -271,14 +300,14 @@ class NetworkMonitor {
                 min: 0,
                 max: 100,
                 axisLine: {
-                    lineStyle: { color: 'rgba(0, 212, 255, 0.2)' }
+                    lineStyle: { color: 'rgba(0, 200, 255, 0.15)' }
                 },
                 axisLabel: {
-                    color: 'rgba(255, 255, 255, 0.5)',
+                    color: 'rgba(180, 200, 230, 0.5)',
                     fontSize: 9
                 },
                 splitLine: {
-                    lineStyle: { color: 'rgba(0, 212, 255, 0.1)' }
+                    lineStyle: { color: 'rgba(0, 200, 255, 0.06)' }
                 }
             },
             series: [
@@ -290,16 +319,16 @@ class NetworkMonitor {
                     symbol: 'circle',
                     symbolSize: 5,
                     lineStyle: {
-                        color: '#00d4ff',
+                        color: '#00c8ff',
                         width: 2
                     },
                     itemStyle: {
-                        color: '#00d4ff'
+                        color: '#00c8ff'
                     },
                     areaStyle: {
                         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                            { offset: 0, color: 'rgba(0, 212, 255, 0.3)' },
-                            { offset: 1, color: 'rgba(0, 212, 255, 0)' }
+                            { offset: 0, color: 'rgba(0, 200, 255, 0.25)' },
+                            { offset: 1, color: 'rgba(0, 200, 255, 0)' }
                         ])
                     }
                 }
@@ -325,13 +354,13 @@ class NetworkMonitor {
                 axisPointer: {
                     type: 'shadow'
                 },
-                backgroundColor: 'rgba(13, 20, 36, 0.95)',
-                borderColor: '#00d4ff',
+                backgroundColor: 'rgba(6, 10, 19, 0.95)',
+                borderColor: '#00c8ff',
                 textStyle: {
-                    color: '#fff'
+                    color: '#eaf4ff'
                 },
                 formatter: function(params) {
-                    let result = '<div style="font-weight:700;margin-bottom:6px;color:#00d4ff">' + params[0].axisValue + '</div>';
+                    let result = '<div style="font-weight:700;margin-bottom:6px;color:#00c8ff">' + params[0].axisValue + '</div>';
                     params.forEach(item => {
                         result += '<div style="display:flex;justify-content:space-between;gap:20px;margin-top:4px">';
                         result += '<span>' + item.marker + ' ' + item.seriesName + '</span>';
@@ -345,10 +374,10 @@ class NetworkMonitor {
                 type: 'category',
                 data: ['光猫', '小区平均'],
                 axisLine: {
-                    lineStyle: { color: 'rgba(0, 212, 255, 0.2)' }
+                    lineStyle: { color: 'rgba(0, 200, 255, 0.15)' }
                 },
                 axisLabel: {
-                    color: 'rgba(255, 255, 255, 0.7)',
+                    color: 'rgba(220, 235, 255, 0.7)',
                     fontSize: 11
                 },
                 axisTick: {
@@ -362,7 +391,7 @@ class NetworkMonitor {
                 axisLine: { show: false },
                 axisLabel: { show: false },
                 splitLine: {
-                    lineStyle: { color: 'rgba(0, 212, 255, 0.05)' }
+                    lineStyle: { color: 'rgba(0, 200, 255, 0.04)' }
                 }
             },
             series: [
@@ -377,7 +406,7 @@ class NetworkMonitor {
                     label: {
                         show: true,
                         position: 'top',
-                        color: '#fff',
+                        color: '#eaf4ff',
                         fontSize: 13,
                         fontWeight: 700,
                         fontFamily: 'var(--font-display)',
@@ -386,7 +415,7 @@ class NetworkMonitor {
                     emphasis: {
                         itemStyle: {
                             shadowBlur: 15,
-                            shadowColor: 'rgba(0, 212, 255, 0.5)'
+                            shadowColor: 'rgba(0, 200, 255, 0.4)'
                         }
                     }
                 }
@@ -397,71 +426,61 @@ class NetworkMonitor {
 
     async fetchData() {
         this.showLoading();
-        try {
-            const ontResponse = await fetch('http://chinaqoe.net/api/hreport_gm/getqoe_month?useruid=GZ1000010462590');
-            const ontResult = await ontResponse.json();
-
-            if (ontResult.code === 1) {
-                this.parseOntData(ontResult);
+        
+        const fetchSafe = async (url, timeout = 8000) => {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(id);
+                const data = await response.json();
+                return { success: true, data };
+            } catch (e) {
+                clearTimeout(id);
+                if (e.name === 'AbortError') {
+                    console.warn(`请求超时: ${url}`);
+                } else {
+                    console.warn(`请求失败: ${url} - ${e.message}`);
+                }
+                return { success: false, data: null };
             }
-        } catch (e) {
-            console.error('获取光猫数据失败:', e);
+        };
+        
+        const ontResult = await fetchSafe('http://chinaqoe.net/api/hreport_gm/getqoe_month?useruid=GZ1000010462590');
+        if (ontResult.success && ontResult.data.code === 1) {
+            this.parseOntData(ontResult.data);
         }
 
-        try {
-            const router1InfoRes = await fetch('http://chinaqoe.net/api/hreport_ly/getinfo?useruid=PKKQGW');
-            const router1Info = await router1InfoRes.json();
-            if (router1Info.code === 1) {
-                this.parseRouter1Info(router1Info.result);
-            }
-        } catch (e) {
-            console.error('获取感知路由PKKQGW信息失败:', e);
+        const router1Info = await fetchSafe('http://chinaqoe.net/api/hreport_ly/getinfo?useruid=PKKQGW');
+        if (router1Info.success && router1Info.data.code === 1) {
+            this.parseRouter1Info(router1Info.data.result);
         }
 
-        try {
-            const [httpRes, videoRes, gameRes, speedRes] = await Promise.all([
-                fetch('http://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=PKKQGW'),
-                fetch('http://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=PKKQGW'),
-                fetch('http://chinaqoe.net/api/hreport_ly/getgame_day?useruid=PKKQGW'),
-                fetch('http://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=PKKQGW')
-            ]);
+        const [httpData, videoData, gameData, speedData] = await Promise.all([
+            fetchSafe('http://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=PKKQGW'),
+            fetchSafe('http://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=PKKQGW'),
+            fetchSafe('http://chinaqoe.net/api/hreport_ly/getgame_day?useruid=PKKQGW'),
+            fetchSafe('http://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=PKKQGW')
+        ]);
 
-            const httpData = await httpRes.json();
-            const videoData = await videoRes.json();
-            const gameData = await gameRes.json();
-            const speedData = await speedRes.json();
-
-            this.parseRouter1Trends({ http: httpData, video: videoData, game: gameData, speed: speedData });
-        } catch (e) {
-            console.error('获取感知路由PKKQGW趋势数据失败:', e);
+        if (httpData.success && videoData.success && gameData.success && speedData.success) {
+            this.parseRouter1Trends({ http: httpData.data, video: videoData.data, game: gameData.data, speed: speedData.data });
         }
 
-        try {
-            const router2InfoRes = await fetch('http://chinaqoe.net/api/hreport_ly/getinfo?useruid=PKKQRW');
-            const router2Info = await router2InfoRes.json();
-            if (router2Info.code === 1) {
-                this.parseRouter2Info(router2Info.result);
-            }
-        } catch (e) {
-            console.error('获取感知路由PKKQRW信息失败:', e);
+        const router2Info = await fetchSafe('http://chinaqoe.net/api/hreport_ly/getinfo?useruid=PKKQRW');
+        if (router2Info.success && router2Info.data.code === 1) {
+            this.parseRouter2Info(router2Info.data.result);
         }
 
-        try {
-            const [httpRes2, videoRes2, gameRes2, speedRes2] = await Promise.all([
-                fetch('http://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=PKKQRW'),
-                fetch('http://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=PKKQRW'),
-                fetch('http://chinaqoe.net/api/hreport_ly/getgame_day?useruid=PKKQRW'),
-                fetch('http://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=PKKQRW')
-            ]);
+        const [httpData2, videoData2, gameData2, speedData2] = await Promise.all([
+            fetchSafe('http://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=PKKQRW'),
+            fetchSafe('http://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=PKKQRW'),
+            fetchSafe('http://chinaqoe.net/api/hreport_ly/getgame_day?useruid=PKKQRW'),
+            fetchSafe('http://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=PKKQRW')
+        ]);
 
-            const httpData2 = await httpRes2.json();
-            const videoData2 = await videoRes2.json();
-            const gameData2 = await gameRes2.json();
-            const speedData2 = await speedRes2.json();
-
-            this.parseRouter2Trends({ http: httpData2, video: videoData2, game: gameData2, speed: speedData2 });
-        } catch (e) {
-            console.error('获取感知路由PKKQRW趋势数据失败:', e);
+        if (httpData2.success && videoData2.success && gameData2.success && speedData2.success) {
+            this.parseRouter2Trends({ http: httpData2.data, video: videoData2.data, game: gameData2.data, speed: speedData2.data });
         }
 
         this.generateMockDevices();
@@ -489,10 +508,10 @@ class NetworkMonitor {
             this.data.router1 = {};
         }
 
-        const http = data.http?.code === 1 ? data.http : null;
-        const video = data.video?.code === 1 ? data.video : null;
-        const game = data.game?.code === 1 ? data.game : null;
-        const speed = data.speed?.code === 1 ? data.speed : null;
+        const http = data.http?.success && data.http?.data?.code === 1 ? data.http.data : null;
+        const video = data.video?.success && data.video?.data?.code === 1 ? data.video.data : null;
+        const game = data.game?.success && data.game?.data?.code === 1 ? data.game.data : null;
+        const speed = data.speed?.success && data.speed?.data?.code === 1 ? data.speed.data : null;
 
         const buildMetricMap = (apiData) => {
             const map = new Map();
@@ -545,10 +564,10 @@ class NetworkMonitor {
             this.data.router2 = {};
         }
 
-        const http = data.http?.code === 1 ? data.http : null;
-        const video = data.video?.code === 1 ? data.video : null;
-        const game = data.game?.code === 1 ? data.game : null;
-        const speed = data.speed?.code === 1 ? data.speed : null;
+        const http = data.http?.success && data.http?.data?.code === 1 ? data.http.data : null;
+        const video = data.video?.success && data.video?.data?.code === 1 ? data.video.data : null;
+        const game = data.game?.success && data.game?.data?.code === 1 ? data.game.data : null;
+        const speed = data.speed?.success && data.speed?.data?.code === 1 ? data.speed.data : null;
 
         const buildMetricMap = (apiData) => {
             const map = new Map();
@@ -841,12 +860,12 @@ class NetworkMonitor {
 
         const colors = [
             new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: '#00d4ff' },
-                { offset: 1, color: '#0099cc' }
+                { offset: 0, color: '#00c8ff' },
+                { offset: 1, color: '#0088aa' }
             ]),
             new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: '#7b2cbf' },
-                { offset: 1, color: '#5a189a' }
+                { offset: 0, color: '#8b5cf6' },
+                { offset: 1, color: '#6d28d9' }
             ])
         ];
 
