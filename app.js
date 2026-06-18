@@ -48,6 +48,59 @@ class NetworkMonitor {
         this.router2CurrentMetric = 'web';
         this.communityCompareChart = null;
         this.floorPlan = null;
+        // 感知路由标识码配置（持久化到本地 localStorage）
+        this.routerCodes = {
+            router1: this.loadConfig('router1Code', 'PKKQGW'),
+            router2: this.loadConfig('router2Code', 'PKKQRW')
+        };
+    }
+
+    // ===== 配置管理（localStorage 持久化） =====
+    loadConfig(key, defaultValue) {
+        try {
+            const value = localStorage.getItem(`network_monitor_${key}`);
+            return value || defaultValue;
+        } catch (e) {
+            return defaultValue;
+        }
+    }
+
+    saveConfig(key, value) {
+        try {
+            localStorage.setItem(`network_monitor_${key}`, value);
+        } catch (e) {
+            console.warn('保存配置失败:', e);
+        }
+    }
+
+    // 带超时的 fetch
+    async fetchWithTimeout(url, options = {}, timeout = 5000) {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeout);
+        try {
+            const response = await fetch(url, { ...options, signal: controller.signal });
+            clearTimeout(id);
+            return response;
+        } catch (e) {
+            clearTimeout(id);
+            throw e;
+        }
+    }
+
+    // ===== 数据查询提示 =====
+    showAlert(routerKey, message) {
+        const alert = document.getElementById(`${routerKey}Alert`);
+        if (alert) {
+            alert.textContent = message;
+            alert.style.display = 'flex';
+        }
+    }
+
+    hideAlert(routerKey) {
+        const alert = document.getElementById(`${routerKey}Alert`);
+        if (alert) {
+            alert.style.display = 'none';
+        }
     }
 
     showLoading() {
@@ -426,24 +479,11 @@ class NetworkMonitor {
 
     async fetchData() {
         this.showLoading();
-        
-        const fetchWithTimeout = async (url, options = {}, timeout = 5000) => {
-            const controller = new AbortController();
-            const id = setTimeout(() => controller.abort(), timeout);
-            try {
-                const response = await fetch(url, { ...options, signal: controller.signal });
-                clearTimeout(id);
-                return response;
-            } catch (e) {
-                clearTimeout(id);
-                throw e;
-            }
-        };
-        
-        try {
-            const ontResponse = await fetchWithTimeout('http://chinaqoe.net/api/hreport_gm/getqoe_month?useruid=GZ1000010462590');
-            const ontResult = await ontResponse.json();
 
+        // 光猫数据
+        try {
+            const ontResponse = await this.fetchWithTimeout('http://chinaqoe.net/api/hreport_gm/getqoe_month?useruid=GZ1000010462590');
+            const ontResult = await ontResponse.json();
             if (ontResult.code === 1) {
                 this.parseOntData(ontResult);
             }
@@ -451,61 +491,9 @@ class NetworkMonitor {
             console.warn('获取光猫数据失败，使用模拟数据:', e.message);
         }
 
-        try {
-            const router1InfoRes = await fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/getinfo?useruid=PKKQGW');
-            const router1Info = await router1InfoRes.json();
-            if (router1Info.code === 1) {
-                this.parseRouter1Info(router1Info.result);
-            }
-        } catch (e) {
-            console.warn('获取感知路由PKKQGW信息失败:', e.message);
-        }
-
-        try {
-            const [httpRes, videoRes, gameRes, speedRes] = await Promise.all([
-                fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=PKKQGW'),
-                fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=PKKQGW'),
-                fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/getgame_day?useruid=PKKQGW'),
-                fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=PKKQGW')
-            ]);
-
-            const httpData = await httpRes.json();
-            const videoData = await videoRes.json();
-            const gameData = await gameRes.json();
-            const speedData = await speedRes.json();
-
-            this.parseRouter1Trends({ http: httpData, video: videoData, game: gameData, speed: speedData });
-        } catch (e) {
-            console.warn('获取感知路由PKKQGW趋势数据失败:', e.message);
-        }
-
-        try {
-            const router2InfoRes = await fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/getinfo?useruid=PKKQRW');
-            const router2Info = await router2InfoRes.json();
-            if (router2Info.code === 1) {
-                this.parseRouter2Info(router2Info.result);
-            }
-        } catch (e) {
-            console.warn('获取感知路由PKKQRW信息失败:', e.message);
-        }
-
-        try {
-            const [httpRes2, videoRes2, gameRes2, speedRes2] = await Promise.all([
-                fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=PKKQRW'),
-                fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=PKKQRW'),
-                fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/getgame_day?useruid=PKKQRW'),
-                fetchWithTimeout('http://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=PKKQRW')
-            ]);
-
-            const httpData2 = await httpRes2.json();
-            const videoData2 = await videoRes2.json();
-            const gameData2 = await gameRes2.json();
-            const speedData2 = await speedRes2.json();
-
-            this.parseRouter2Trends({ http: httpData2, video: videoData2, game: gameData2, speed: speedData2 });
-        } catch (e) {
-            console.warn('获取感知路由PKKQRW趋势数据失败:', e.message);
-        }
+        // 感知路由数据（使用配置的标识码）
+        await this.fetchRouterData('router1');
+        await this.fetchRouterData('router2');
 
         this.generateMockDevices();
         this.updateUI();
@@ -515,6 +503,71 @@ class NetworkMonitor {
         this.updateRouter2TrendChart();
         document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false });
         this.hideLoading();
+    }
+
+    // 获取单个感知路由数据（根据配置的标识码）
+    async fetchRouterData(routerKey) {
+        const code = this.routerCodes[routerKey];
+        const isRouter1 = routerKey === 'router1';
+        const parseInfo = isRouter1 ? this.parseRouter1Info.bind(this) : this.parseRouter2Info.bind(this);
+        const parseTrends = isRouter1 ? this.parseRouter1Trends.bind(this) : this.parseRouter2Trends.bind(this);
+
+        // 清除旧数据，便于判断本次是否查询到新数据
+        if (isRouter1) {
+            this.data.router1 = null;
+        } else {
+            this.data.router2 = null;
+        }
+
+        let apiResponded = false;
+
+        try {
+            const infoRes = await this.fetchWithTimeout(`http://chinaqoe.net/api/hreport_ly/getinfo?useruid=${code}`);
+            const info = await infoRes.json();
+            apiResponded = true;
+            if (info.code === 1) {
+                parseInfo(info.result);
+            }
+        } catch (e) {
+            console.warn(`获取感知路由${code}信息失败:`, e.message);
+        }
+
+        try {
+            const [httpRes, videoRes, gameRes, speedRes] = await Promise.all([
+                this.fetchWithTimeout(`http://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=${code}`),
+                this.fetchWithTimeout(`http://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=${code}`),
+                this.fetchWithTimeout(`http://chinaqoe.net/api/hreport_ly/getgame_day?useruid=${code}`),
+                this.fetchWithTimeout(`http://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=${code}`)
+            ]);
+
+            const httpData = await httpRes.json();
+            const videoData = await videoRes.json();
+            const gameData = await gameRes.json();
+            const speedData = await speedRes.json();
+            apiResponded = true;
+            parseTrends({ http: httpData, video: videoData, game: gameData, speed: speedData });
+        } catch (e) {
+            console.warn(`获取感知路由${code}趋势数据失败:`, e.message);
+        }
+
+        // 判断是否查询到数据
+        const routerData = isRouter1 ? this.data.router1 : this.data.router2;
+        const hasData = routerData && (routerData.basicInfo || (routerData.scoreHistory && routerData.scoreHistory.length > 0));
+
+        if (apiResponded && !hasData) {
+            // API 正常响应但无数据，提示标识码可能有误
+            this.showAlert(routerKey, `未查询到标识码 "${code}" 的数据，请检查标识码是否正确`);
+        } else if (hasData) {
+            this.hideAlert(routerKey);
+        }
+
+        if (isRouter1) {
+            this.updateRouter1Card();
+            this.updateRouter1TrendChart();
+        } else {
+            this.updateRouter2Card();
+            this.updateRouter2TrendChart();
+        }
     }
 
     parseRouter1Info(result) {
@@ -911,7 +964,12 @@ class NetworkMonitor {
 
     updateRouter1Card() {
         const router1 = this.data.router1;
-        if (!router1) return;
+        if (!router1 || !router1.basicInfo) {
+            document.getElementById('router1Status').textContent = '-';
+            document.getElementById('router1Operator').textContent = '-';
+            this.updateRouter1TrendChart();
+            return;
+        }
 
         document.getElementById('router1Status').textContent = router1.basicInfo.status || '-';
         document.getElementById('router1Operator').textContent = router1.basicInfo.operator || '-';
@@ -921,7 +979,12 @@ class NetworkMonitor {
 
     updateRouter2Card() {
         const router2 = this.data.router2;
-        if (!router2) return;
+        if (!router2 || !router2.basicInfo) {
+            document.getElementById('router2Status').textContent = '-';
+            document.getElementById('router2Operator').textContent = '-';
+            this.updateRouter2TrendChart();
+            return;
+        }
 
         document.getElementById('router2Status').textContent = router2.basicInfo.status || '-';
         document.getElementById('router2Operator').textContent = router2.basicInfo.operator || '-';
@@ -1095,6 +1158,75 @@ class NetworkMonitor {
                 this.router2CurrentMetric = e.target.dataset.metric;
                 this.updateRouter2TrendChart();
             });
+        });
+
+        // 感知路由标识码编辑
+        this.initRouterCodeEditor('router1');
+        this.initRouterCodeEditor('router2');
+    }
+
+    // 感知路由标识码内联编辑
+    initRouterCodeEditor(routerKey) {
+        const codeText = document.getElementById(`${routerKey}Code`);
+        const codeInput = document.getElementById(`${routerKey}CodeInput`);
+        const editBtn = document.getElementById(`${routerKey}EditBtn`);
+        const saveBtn = document.getElementById(`${routerKey}SaveBtn`);
+        const cancelBtn = document.getElementById(`${routerKey}CancelBtn`);
+        if (!codeText || !codeInput || !editBtn || !saveBtn || !cancelBtn) return;
+
+        // 初始化显示本地配置中的标识码
+        codeText.textContent = this.routerCodes[routerKey];
+
+        const enterEditMode = () => {
+            codeText.style.display = 'none';
+            codeInput.style.display = 'inline-block';
+            codeInput.value = this.routerCodes[routerKey];
+            editBtn.style.display = 'none';
+            saveBtn.style.display = 'flex';
+            cancelBtn.style.display = 'flex';
+            codeInput.focus();
+            codeInput.select();
+        };
+
+        const exitEditMode = () => {
+            codeText.style.display = 'inline';
+            codeInput.style.display = 'none';
+            editBtn.style.display = 'flex';
+            saveBtn.style.display = 'none';
+            cancelBtn.style.display = 'none';
+        };
+
+        editBtn.addEventListener('click', enterEditMode);
+        cancelBtn.addEventListener('click', exitEditMode);
+
+        saveBtn.addEventListener('click', async () => {
+            const newCode = codeInput.value.trim().toUpperCase();
+            if (!newCode) {
+                this.showAlert(routerKey, '标识码不能为空');
+                exitEditMode();
+                return;
+            }
+            if (newCode === this.routerCodes[routerKey]) {
+                exitEditMode();
+                return;
+            }
+            // 保存新标识码到本地配置
+            this.routerCodes[routerKey] = newCode;
+            this.saveConfig(`${routerKey}Code`, newCode);
+            codeText.textContent = newCode;
+            exitEditMode();
+            // 根据新标识码重新获取数据
+            this.showLoading();
+            await this.fetchRouterData(routerKey);
+            this.hideLoading();
+        });
+
+        codeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                saveBtn.click();
+            } else if (e.key === 'Escape') {
+                exitEditMode();
+            }
         });
     }
 

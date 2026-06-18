@@ -325,6 +325,111 @@ html, body {
     color: var(--text-primary);
 }
 
+/* 路由标识码编辑 */
+.router-code-text {
+    color: var(--accent-primary);
+    margin-left: 4px;
+    font-weight: 700;
+}
+
+.router-code-input {
+    width: 95px;
+    margin-left: 6px;
+    padding: 2px 6px;
+    background: rgba(0, 200, 255, 0.1);
+    border: 1px solid var(--accent-primary);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-family: var(--font-display);
+    font-size: clamp(13px, 1.1vw, 17px);
+    font-weight: 700;
+    letter-spacing: 1px;
+    outline: none;
+    text-transform: uppercase;
+}
+
+.router-code-input:focus {
+    box-shadow: 0 0 8px rgba(0, 200, 255, 0.4);
+}
+
+.code-edit-btn,
+.code-save-btn,
+.code-cancel-btn {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 200, 255, 0.1);
+    border: 1px solid rgba(0, 200, 255, 0.3);
+    border-radius: 5px;
+    color: var(--accent-primary);
+    cursor: pointer;
+    transition: all 0.25s ease;
+    margin-left: 6px;
+}
+
+.code-edit-btn svg,
+.code-save-btn svg,
+.code-cancel-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.code-edit-btn:hover {
+    background: rgba(0, 200, 255, 0.25);
+    box-shadow: 0 0 8px rgba(0, 200, 255, 0.4);
+}
+
+.code-save-btn {
+    color: var(--accent-success);
+    border-color: rgba(52, 211, 153, 0.4);
+    background: rgba(52, 211, 153, 0.1);
+}
+
+.code-save-btn:hover {
+    background: rgba(52, 211, 153, 0.25);
+    box-shadow: 0 0 8px rgba(52, 211, 153, 0.4);
+}
+
+.code-cancel-btn {
+    color: var(--accent-danger);
+    border-color: rgba(244, 63, 94, 0.4);
+    background: rgba(244, 63, 94, 0.1);
+}
+
+.code-cancel-btn:hover {
+    background: rgba(244, 63, 94, 0.25);
+    box-shadow: 0 0 8px rgba(244, 63, 94, 0.4);
+}
+
+/* 数据查询提示 */
+.data-alert {
+    margin-bottom: 1.2vh;
+    padding: 0.8vh 1vw;
+    background: rgba(251, 191, 36, 0.12);
+    border: 1px solid rgba(251, 191, 36, 0.4);
+    border-radius: 6px;
+    color: var(--accent-warning);
+    font-size: clamp(11px, 0.85vw, 13px);
+    line-height: 1.5;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    animation: alertPulse 2s ease-in-out infinite;
+}
+
+.data-alert::before {
+    content: '\26A0';
+    font-size: 14px;
+}
+
+@keyframes alertPulse {
+    0%, 100% { opacity: 0.85; }
+    50% { opacity: 1; }
+}
+
 .card-status {
     width: 10px;
     height: 10px;
