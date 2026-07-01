@@ -244,6 +244,8 @@ html, body {
     backdrop-filter: blur(16px);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 .data-card::before {
@@ -290,6 +292,7 @@ html, body {
     background: linear-gradient(90deg, rgba(0, 200, 255, 0.08), transparent 70%);
     border-bottom: 1px solid rgba(0, 200, 255, 0.08);
     position: relative;
+    flex-shrink: 0;
 }
 
 .card-header::after {
@@ -454,6 +457,9 @@ html, body {
 
 .card-body {
     padding: 1.5vh 1.2vw;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
 }
 
 .info-section {
@@ -1213,7 +1219,7 @@ html, body {
 }
 
 .trend-chart {
-    height: clamp(150px, 18vh, 200px);
+    height: clamp(120px, 14vh, 160px);
     width: 100%;
 }
 
@@ -1409,8 +1415,8 @@ html, body {
 
 .compare-chart {
     width: 100%;
-    height: clamp(120px, 10vw, 160px);
-    min-height: 120px;
+    height: clamp(90px, 7vw, 120px);
+    min-height: 90px;
 }
 
 .loading-overlay {
@@ -1465,3 +1471,314 @@ html, body {
     letter-spacing: 3px;
     opacity: 0.8;
 }
+
+/* ===== 设备信息弹窗 ===== */
+.device-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.device-modal-overlay.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.device-modal {
+    width: min(560px, 92vw);
+    max-height: 86vh;
+    background: var(--bg-card);
+    border: 1px solid var(--bg-card-border-hover);
+    border-radius: var(--radius-card);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6), 0 0 24px rgba(0, 200, 255, 0.15);
+    backdrop-filter: blur(20px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: translateY(20px) scale(0.96);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.device-modal-overlay.visible .device-modal {
+    transform: translateY(0) scale(1);
+}
+
+.device-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.4vh 1.4vw;
+    background: linear-gradient(90deg, rgba(0, 200, 255, 0.12), transparent 70%);
+    border-bottom: 1px solid rgba(0, 200, 255, 0.12);
+    flex-shrink: 0;
+}
+
+.device-modal-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: clamp(15px, 1.2vw, 18px);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.device-modal-icon {
+    font-size: clamp(18px, 1.5vw, 22px);
+    filter: drop-shadow(0 0 6px rgba(0, 200, 255, 0.4));
+}
+
+.device-modal-close {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.device-modal-close svg {
+    width: 16px;
+    height: 16px;
+}
+
+.device-modal-close:hover {
+    background: rgba(255, 0, 110, 0.15);
+    border-color: rgba(255, 0, 110, 0.4);
+    color: #ff006e;
+}
+
+.device-modal-body {
+    padding: 1.6vh 1.4vw;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+.device-modal-body .modal-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1vh 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.device-modal-body .modal-info-row:last-child {
+    border-bottom: none;
+}
+
+.device-modal-body .modal-info-label {
+    color: var(--text-muted);
+    font-size: clamp(12px, 0.9vw, 14px);
+}
+
+.device-modal-body .modal-info-value {
+    color: var(--text-primary);
+    font-size: clamp(13px, 1vw, 15px);
+    font-weight: 500;
+    text-align: right;
+}
+
+.device-modal-body .modal-info-value.online {
+    color: var(--accent-success);
+}
+
+.device-modal-body .modal-info-value.offline {
+    color: var(--accent-danger);
+}
+
+.device-modal-body .modal-section-title {
+    color: var(--accent-primary);
+    font-size: clamp(12px, 0.95vw, 14px);
+    font-weight: 600;
+    margin: 1.6vh 0 0.8vh;
+    padding-bottom: 0.5vh;
+    border-bottom: 1px solid rgba(0, 200, 255, 0.15);
+    letter-spacing: 1px;
+}
+
+.device-modal-body .modal-section-title:first-child {
+    margin-top: 0;
+}
+
+/* 光猫弹窗左右布局 */
+.device-modal-body .modal-content-wrapper {
+    display: flex;
+    gap: 20px;
+    height: 100%;
+}
+
+.device-modal-body .modal-left-section {
+    flex: 0 0 45%;
+    overflow-y: auto;
+}
+
+.device-modal-body .modal-right-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.device-modal-body .modal-chart-section {
+    flex: 1;
+    min-height: 0;
+}
+
+.device-modal-body .modal-chart {
+    width: 100%;
+    height: 180px;
+    margin-top: 8px;
+}
+
+.device-modal-body .modal-section-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.device-modal-body .modal-trend-selector {
+    display: flex;
+    gap: 4px;
+}
+
+.device-modal-body .modal-trend-btn {
+    padding: 2px 8px;
+    font-size: 11px;
+    background: rgba(0, 200, 255, 0.1);
+    border: 1px solid rgba(0, 200, 255, 0.3);
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.device-modal-body .modal-trend-btn:hover {
+    background: rgba(0, 200, 255, 0.2);
+    color: var(--text-primary);
+}
+
+.device-modal-body .modal-trend-btn.active {
+    background: rgba(0, 200, 255, 0.3);
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
+}
+
+/* 弹窗内标识码切换区域 */
+.device-modal-body .modal-code-section {
+    margin-top: 1.8vh;
+    padding: 1.4vh 1.2vw;
+    background: rgba(0, 200, 255, 0.05);
+    border: 1px solid rgba(0, 200, 255, 0.15);
+    border-radius: 8px;
+}
+
+.device-modal-body .modal-code-label {
+    display: block;
+    color: var(--text-muted);
+    font-size: clamp(11px, 0.85vw, 13px);
+    margin-bottom: 0.6vh;
+    letter-spacing: 0.5px;
+}
+
+.device-modal-body .modal-code-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.device-modal-body .modal-code-input,
+.device-modal-body .modal-code-select {
+    flex: 1;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 200, 255, 0.3);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font-display);
+    font-size: clamp(13px, 1vw, 15px);
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    outline: none;
+    text-transform: uppercase;
+    transition: all 0.25s ease;
+}
+
+.device-modal-body .modal-code-select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2300c8ff' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+}
+
+.device-modal-body .modal-code-select option {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    padding: 8px;
+}
+
+.device-modal-body .modal-code-input:focus,
+.device-modal-body .modal-code-select:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 10px rgba(0, 200, 255, 0.35);
+}
+
+.device-modal-body .modal-code-btn {
+    flex-shrink: 0;
+    padding: 8px 18px;
+    background: linear-gradient(135deg, rgba(0, 200, 255, 0.3), rgba(0, 150, 200, 0.2));
+    border: 1px solid rgba(0, 200, 255, 0.4);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: clamp(12px, 0.9vw, 14px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    letter-spacing: 1px;
+}
+
+.device-modal-body .modal-code-btn:hover {
+    background: linear-gradient(135deg, rgba(0, 200, 255, 0.5), rgba(0, 150, 200, 0.35));
+    box-shadow: 0 0 12px rgba(0, 200, 255, 0.45);
+}
+
+.device-modal-body .modal-code-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.device-modal-body .modal-hint {
+    margin-top: 0.8vh;
+    color: var(--text-muted);
+    font-size: clamp(11px, 0.8vw, 12px);
+    line-height: 1.5;
+}
+
+.device-modal-body .modal-hint.warn {
+    color: var(--accent-warning, #fee440);
+}
+
+.device-modal-body .modal-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 3vh 0;
+    font-size: clamp(12px, 0.9vw, 14px);
+}
+

@@ -14,9 +14,14 @@ class FloorPlan3D {
         this.defaultCameraPosition = null;
         this.defaultTarget = null;
 
+        this.raycaster = new THREE.Raycaster();
+        this.mouse = new THREE.Vector2();
+        this.hoveredDevice = null;
+
         this.init();
         this.createFloorPlan();
         this.bindControls();
+        this.bindDeviceInteraction();
         this.animate();
     }
 
@@ -111,6 +116,126 @@ class FloorPlan3D {
 
         if (btnZoomOut) {
             btnZoomOut.addEventListener('click', () => this.zoomOut());
+        }
+    }
+
+    // 绑定设备点击与悬停交互（光猫/路由可点击查看信息）
+    bindDeviceInteraction() {
+        const canvas = this.renderer.domElement;
+        let downPos = { x: 0, y: 0 };
+        let downTime = 0;
+
+        // 使用 pointerdown 和 pointerup 事件，更可靠且不受 OrbitControls 影响
+        canvas.addEventListener('pointerdown', (e) => {
+            downPos = { x: e.clientX, y: e.clientY };
+            downTime = Date.now();
+        });
+
+        // 在 pointerup 上判断点击：位移小且时间短视为点击
+        canvas.addEventListener('pointerup', (e) => {
+            const dx = e.clientX - downPos.x;
+            const dy = e.clientY - downPos.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const elapsed = Date.now() - downTime;
+            // 位移超过 6px 或耗时超过 600ms 视为拖拽，忽略
+            if (dist > 6 || elapsed > 600) return;
+
+            const device = this.pickDevice(e);
+            if (device) {
+                this.handleDeviceClick(device);
+            }
+        });
+
+        // 触摸支持：移动端点击
+        let touchDownPos = { x: 0, y: 0 };
+        let touchDownTime = 0;
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.changedTouches.length === 0) return;
+            const t = e.changedTouches[0];
+            touchDownPos = { x: t.clientX, y: t.clientY };
+            touchDownTime = Date.now();
+        }, { passive: true });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (e.changedTouches.length === 0) return;
+            const t = e.changedTouches[0];
+            const dx = t.clientX - touchDownPos.x;
+            const dy = t.clientY - touchDownPos.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const elapsed = Date.now() - touchDownTime;
+            if (dist > 6 || elapsed > 600) return;
+
+            const device = this.pickDevice({ clientX: t.clientX, clientY: t.clientY });
+            if (device) {
+                this.handleDeviceClick(device);
+            }
+        }, { passive: true });
+
+        // 悬停高亮与光标变化
+        canvas.addEventListener('mousemove', (e) => {
+            const device = this.pickDevice(e);
+            if (device !== this.hoveredDevice) {
+                this.setHoverHighlight(this.hoveredDevice, false);
+                this.setHoverHighlight(device, true);
+                this.hoveredDevice = device;
+            }
+            canvas.style.cursor = device ? 'pointer' : 'default';
+        });
+    }
+
+    // 通过 raycaster 获取鼠标命中的可点击设备
+    pickDevice(event) {
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+
+        // 收集所有可点击设备的可命中对象
+        const targets = [];
+        this.devices.forEach(d => {
+            if (d.type === 'router' || d.type === 'ont') {
+                d.group.traverse(child => {
+                    if (child.isMesh) targets.push(child);
+                });
+            }
+        });
+
+        if (targets.length === 0) return null;
+
+        // 确保世界变换矩阵是最新的，避免 raycaster 命中失效
+        this.scene.updateMatrixWorld(true);
+
+        const intersects = this.raycaster.intersectObjects(targets, false);
+        if (intersects.length === 0) return null;
+
+        // 沿父级链查找带 clickable 标记的对象
+        let obj = intersects[0].object;
+        while (obj && !obj.userData.clickable) {
+            obj = obj.parent;
+        }
+        if (!obj) return null;
+
+        // 返回对应设备记录
+        return this.devices.find(d => d.name === obj.userData.deviceName && d.type === obj.userData.deviceType) || null;
+    }
+
+    // 悬停高亮切换（缩放轻微变化）
+    setHoverHighlight(device, isHover) {
+        if (!device || !device.modelGroup) return;
+        const scale = isHover ? 1.15 : 1.0;
+        device.modelGroup.scale.set(scale, scale, scale);
+    }
+
+    // 处理设备点击：通知 app 层弹出信息窗口
+    handleDeviceClick(device) {
+        console.log('[FloorPlan3D] 设备被点击:', device.name, device.type);
+        console.log('[FloorPlan3D] onDeviceClick 回调:', typeof this.onDeviceClick);
+        if (this.onDeviceClick && typeof this.onDeviceClick === 'function') {
+            console.log('[FloorPlan3D] 调用 onDeviceClick 回调');
+            this.onDeviceClick(device.name, device.type);
+        } else {
+            console.warn('[FloorPlan3D] onDeviceClick 回调未定义或不是函数');
         }
     }
 
@@ -265,6 +390,7 @@ class FloorPlan3D {
         this.createSofaSet();
         this.createBathroom();
         this.createDevices();
+        this.createRoomLabels();
         this.createInternetConnection();
         this.createAmbientParticles();
     }
@@ -657,23 +783,32 @@ class FloorPlan3D {
         const internetLabel = this.createLabel('互联网', '#1e90ff', { x: 0, y: 3.5, z: -12 });
         this.scene.add(internetLabel);
 
+        // 光猫位于大厅 [0, 0, 3]，作为网络中枢连接互联网与三台感知路由
         this.createPolylineFiberConnection([
             new THREE.Vector3(0, 0.15, -12),
-            new THREE.Vector3(7, 0.15, -12),
-            new THREE.Vector3(7, 0.15, 3.75)
+            new THREE.Vector3(0, 0.15, 3)
         ], 0x00c8ff, 'internet');
 
+        // 光猫 → 路由1（卧室1）
         this.createPolylineFiberConnection([
-            new THREE.Vector3(7, 0.15, 3.75),
+            new THREE.Vector3(0, 0.15, 3),
+            new THREE.Vector3(0, 0.15, -3.75),
+            new THREE.Vector3(-7, 0.15, -3.75)
+        ], 0x00c8ff, 'fiber1');
+
+        // 光猫 → 路由2（卧室2）
+        this.createPolylineFiberConnection([
+            new THREE.Vector3(0, 0.15, 3),
+            new THREE.Vector3(-7, 0.15, 3),
             new THREE.Vector3(-7, 0.15, 3.75)
         ], 0x00c8ff, 'fiber2');
 
+        // 光猫 → 路由3（卧室3）
         this.createPolylineFiberConnection([
-            new THREE.Vector3(7, 0.15, 3.75),
-            new THREE.Vector3(-2, 0.15, 3.75),
-            new THREE.Vector3(-2, 0.15, -3.75),
-            new THREE.Vector3(-7, 0.15, -3.75)
-        ], 0x00c8ff, 'fiber1');
+            new THREE.Vector3(0, 0.15, 3),
+            new THREE.Vector3(7, 0.15, 3),
+            new THREE.Vector3(7, 0.15, 3.75)
+        ], 0x00c8ff, 'fiber3');
     }
 
     createFiberConnection(startPos, endPos, color, name) {
@@ -747,12 +882,30 @@ class FloorPlan3D {
         const deviceData = [
             { pos: [-7, 0, -3.75], color: 0x7b2cbf, name: '路由1', signal: 88, type: 'router' },
             { pos: [-7, 0, 3.75], color: 0x7b2cbf, name: '路由2', signal: 82, type: 'router' },
+            { pos: [7, 0, 3.75], color: 0x7b2cbf, name: '路由3', signal: 85, type: 'router' },
             { pos: [4.7, 0, 5], color: 0x00ff00, name: '电视', signal: 70, type: 'tv' },
-            { pos: [7, 0, 3.75], color: 0x00d4ff, name: '光猫', signal: 95, type: 'ont' }
+            { pos: [0, 0, 3], color: 0x00d4ff, name: '光猫', signal: 95, type: 'ont' }
         ];
 
         deviceData.forEach(device => {
             this.add3DDevice(device.pos, device.color, device.name, device.signal, device.type);
+        });
+    }
+
+    // 房间名称标注
+    createRoomLabels() {
+        const roomColor = '#fbbf24';
+        const rooms = [
+            { name: '卧室1', pos: [-10, 1.6, -3.75] },
+            { name: '卧室2', pos: [-10, 1.6, 3.75] },
+            { name: '大厅', pos: [0, 1.6, 0] },
+            { name: '浴室', pos: [10, 1.6, -4.5] },
+            { name: '卧室3', pos: [10, 1.6, 3.75] }
+        ];
+
+        rooms.forEach(room => {
+            const label = this.createLabel(room.name, roomColor, { x: room.pos[0], y: room.pos[1], z: room.pos[2] }, { x: 2.4, y: 0.6 });
+            this.scene.add(label);
         });
     }
 
@@ -761,7 +914,7 @@ class FloorPlan3D {
 
         const baseGeometry = new THREE.BoxGeometry(1.5, 0.2, 1);
         const baseMaterial = new THREE.MeshStandardMaterial({
-            color: 0x1a2540,
+            color: 0xffffff,
             roughness: 0.3,
             metalness: 0.5
         });
@@ -771,7 +924,7 @@ class FloorPlan3D {
 
         const topGeometry = new THREE.BoxGeometry(1.4, 0.1, 0.9);
         const topMaterial = new THREE.MeshStandardMaterial({
-            color: 0x2a3a55,
+            color: 0xffffff,
             roughness: 0.4,
             metalness: 0.4
         });
@@ -780,7 +933,7 @@ class FloorPlan3D {
         routerGroup.add(top);
 
         const antennaMaterial = new THREE.MeshStandardMaterial({
-            color: 0x3a4a65,
+            color: 0xffffff,
             roughness: 0.5,
             metalness: 0.3
         });
@@ -942,7 +1095,7 @@ class FloorPlan3D {
 
         const mainGeometry = new THREE.BoxGeometry(1.8, 0.25, 1.2);
         const mainMaterial = new THREE.MeshStandardMaterial({
-            color: 0x2a3a55,
+            color: 0xffffff,
             roughness: 0.4,
             metalness: 0.4
         });
@@ -952,7 +1105,7 @@ class FloorPlan3D {
 
         const panelGeometry = new THREE.BoxGeometry(1.6, 0.15, 0.05);
         const panelMaterial = new THREE.MeshStandardMaterial({
-            color: 0x1a2540,
+            color: 0xffffff,
             roughness: 0.5,
             metalness: 0.3
         });
@@ -998,27 +1151,105 @@ class FloorPlan3D {
         const group = new THREE.Group();
         group.position.set(...position);
 
+        let modelGroup = null;
         if (type === 'router') {
-            const router = this.createRouterModel(color);
-            group.add(router);
+            modelGroup = this.createRouterModel(color);
+            group.add(modelGroup);
         } else if (type === 'tv') {
-            const tv = this.createTVModel(color);
-            group.add(tv);
+            modelGroup = this.createTVModel(color);
+            group.add(modelGroup);
         } else if (type === 'ont') {
-            const ont = this.createONTModel(color);
-            group.add(ont);
+            modelGroup = this.createONTModel(color);
+            group.add(modelGroup);
         }
 
         const label = this.createLabel(name, '#00c8ff', { x: 0, y: 2.5, z: 0 });
         group.add(label);
 
+        // 添加状态指示光环（实心圆形，用于显示告警状态）
+        let statusRing = null;
+        if (type === 'router' || type === 'ont') {
+            const ringGeometry = new THREE.CircleGeometry(1.3, 32);
+            const ringMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ff00,
+                transparent: true,
+                opacity: 0,
+                side: THREE.DoubleSide
+            });
+            statusRing = new THREE.Mesh(ringGeometry, ringMaterial);
+            statusRing.rotation.x = -Math.PI / 2;
+            statusRing.position.y = 0.05;
+            group.add(statusRing);
+
+            // 添加一个透明的大碰撞盒，使设备更容易被点击命中
+            const hitboxGeo = new THREE.BoxGeometry(2.5, 2.5, 2.5);
+            const hitboxMat = new THREE.MeshBasicMaterial({
+                transparent: true,
+                opacity: 0,
+                depthWrite: false,
+                side: THREE.DoubleSide
+            });
+            const hitbox = new THREE.Mesh(hitboxGeo, hitboxMat);
+            hitbox.position.y = 1.0;
+            hitbox.userData.deviceName = name;
+            hitbox.userData.deviceType = type;
+            hitbox.userData.clickable = true;
+            hitbox.userData.isHitbox = true;
+            group.add(hitbox);
+
+            // 同时为已有模型组件打上标记（兜底）
+            group.traverse(child => {
+                child.userData.deviceName = name;
+                child.userData.deviceType = type;
+                child.userData.clickable = true;
+            });
+        }
+
         this.devices.push({
             group: group,
             signal: signal,
-            baseColor: color
+            baseColor: color,
+            name: name,
+            type: type,
+            modelGroup: modelGroup,
+            statusRing: statusRing
         });
 
         this.scene.add(group);
+    }
+
+    // 更新设备状态显示（离线、告警）
+    updateDeviceStatus(deviceName, status, score) {
+        const device = this.devices.find(d => d.name === deviceName);
+        if (!device) return;
+
+        // 存储设备状态供动画循环使用
+        device.status = status;
+
+        if (!device.statusRing) return;
+
+        const ringMaterial = device.statusRing.material;
+        
+        // 离线或未查询到状态：灰色半透明
+        if (status === '离线' || status === undefined || status === null || status === '') {
+            ringMaterial.color.setHex(0x888888);
+            ringMaterial.opacity = 0.3;
+            return;
+        }
+
+        // 根据分数显示告警状态（使用项目风格颜色）
+        if (score < 60) {
+            // 红色告警 - 对应 --accent-danger
+            ringMaterial.color.setHex(0xf43f5e);
+            ringMaterial.opacity = 0.6;
+        } else if (score < 80) {
+            // 黄色告警 - 对应 --accent-warning
+            ringMaterial.color.setHex(0xfbbf24);
+            ringMaterial.opacity = 0.5;
+        } else {
+            // 正常状态：隐藏光环
+            ringMaterial.opacity = 0;
+        }
     }
 
     roundRect(ctx, x, y, width, height, radius) {
@@ -1118,7 +1349,18 @@ class FloorPlan3D {
             });
 
             if (signalEffects) {
+                // 检查设备是否在线（支持中文'离线'和英文'offline'，未查询到的设备也视为离线）
+                const isOnline = device.status && device.status !== '离线' && device.status !== 'offline';
+                
                 signalEffects.forEach((effect, idx) => {
+                    if (!isOnline) {
+                        // 离线状态：隐藏所有波纹效果
+                        if (effect.fillMaterial) effect.fillMaterial.opacity = 0;
+                        if (effect.dashBorderMaterial) effect.dashBorderMaterial.opacity = 0;
+                        if (effect.pulseMaterial) effect.pulseMaterial.opacity = 0;
+                        return;
+                    }
+
                     // 呼吸灯效果 - 填充层透明度变化
                     if (effect.fillMaterial) {
                         const breathOpacity = (0.08 - effect.index * 0.02) * (0.5 + 0.5 * Math.sin(time * 2 + effect.phase));
