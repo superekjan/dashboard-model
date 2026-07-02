@@ -571,7 +571,7 @@ class NetworkMonitor {
 
         // 光猫数据
         try {
-            const ontResponse = await this.fetchWithTimeout('http://chinaqoe.net/api/hreport_gm/getqoe_month?useruid=GZ1000010462590');
+            const ontResponse = await this.fetchWithTimeout('https://chinaqoe.net/api/hreport_gm/getqoe_month?useruid=GZ1000010462590');
             const ontResult = await ontResponse.json();
             if (ontResult.code === 1) {
                 this.parseOntData(ontResult);
@@ -610,7 +610,7 @@ class NetworkMonitor {
         let apiResponded = false;
 
         try {
-            const infoRes = await this.fetchWithTimeout(`http://chinaqoe.net/api/hreport_ly/getinfo?useruid=${code}`);
+            const infoRes = await this.fetchWithTimeout(`https://chinaqoe.net/api/hreport_ly/getinfo?useruid=${code}`);
             const info = await infoRes.json();
             apiResponded = true;
             if (info.code === 1) {
@@ -622,10 +622,10 @@ class NetworkMonitor {
 
         try {
             const [httpRes, videoRes, gameRes, speedRes] = await Promise.all([
-                this.fetchWithTimeout(`http://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=${code}`),
-                this.fetchWithTimeout(`http://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=${code}`),
-                this.fetchWithTimeout(`http://chinaqoe.net/api/hreport_ly/getgame_day?useruid=${code}`),
-                this.fetchWithTimeout(`http://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=${code}`)
+                this.fetchWithTimeout(`https://chinaqoe.net/api/hreport_ly/gethttp_day?useruid=${code}`),
+                this.fetchWithTimeout(`https://chinaqoe.net/api/hreport_ly/getvideo_day?useruid=${code}`),
+                this.fetchWithTimeout(`https://chinaqoe.net/api/hreport_ly/getgame_day?useruid=${code}`),
+                this.fetchWithTimeout(`https://chinaqoe.net/api/hreport_ly/getspeed_day?useruid=${code}`)
             ]);
 
             const httpData = await httpRes.json();
