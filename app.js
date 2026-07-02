@@ -1090,6 +1090,12 @@ class NetworkMonitor {
             document.getElementById('ontGameScore').textContent = score.game_score || '-';
         }
 
+        // 更新3D户型图中光猫的状态与最新感知分值
+        if (this.floorPlan3d) {
+            const ontScore = (score && typeof score.total_score === 'number') ? score.total_score : undefined;
+            this.floorPlan3d.updateDeviceStatus('光猫', '在线', ontScore);
+        }
+
         const compareTitle = document.getElementById('compareTitle');
         if (compareTitle && ont.basicInfo.community) {
             compareTitle.textContent = ont.basicInfo.community;
@@ -1142,6 +1148,7 @@ class NetworkMonitor {
         if (!router1 || !router1.basicInfo) {
             document.getElementById('router1Status').textContent = '-';
             document.getElementById('router1Operator').textContent = '-';
+            document.getElementById('router1Score').textContent = '-';
             this.updateRouter1TrendChart();
             return;
         }
@@ -1149,10 +1156,23 @@ class NetworkMonitor {
         document.getElementById('router1Status').textContent = router1.basicInfo.status || '-';
         document.getElementById('router1Operator').textContent = router1.basicInfo.operator || '-';
 
+        // 更新最新感知分值显示
+        const latestScore = this.getLatestScore('router1');
+        const router1ScoreEl = document.getElementById('router1Score');
+        if (router1ScoreEl) {
+            if (router1.scoreHistory && router1.scoreHistory.length > 0) {
+                router1ScoreEl.textContent = latestScore;
+                router1ScoreEl.style.color = this.getScoreColor(latestScore);
+            } else {
+                router1ScoreEl.textContent = '-';
+                router1ScoreEl.style.color = '';
+            }
+        }
+
         // 更新3D模型状态显示
         if (this.floorPlan3d) {
-            const latestScore = this.getLatestScore('router1');
-            this.floorPlan3d.updateDeviceStatus('路由1', router1.basicInfo.status, latestScore);
+            const floorScore = (router1.scoreHistory && router1.scoreHistory.length > 0) ? latestScore : undefined;
+            this.floorPlan3d.updateDeviceStatus('路由1', router1.basicInfo.status, floorScore);
         }
 
         this.updateRouter1TrendChart();
@@ -1163,6 +1183,7 @@ class NetworkMonitor {
         if (!router2 || !router2.basicInfo) {
             document.getElementById('router2Status').textContent = '-';
             document.getElementById('router2Operator').textContent = '-';
+            document.getElementById('router2Score').textContent = '-';
             this.updateRouter2TrendChart();
             return;
         }
@@ -1170,10 +1191,23 @@ class NetworkMonitor {
         document.getElementById('router2Status').textContent = router2.basicInfo.status || '-';
         document.getElementById('router2Operator').textContent = router2.basicInfo.operator || '-';
 
+        // 更新最新感知分值显示
+        const latestScore = this.getLatestScore('router2');
+        const router2ScoreEl = document.getElementById('router2Score');
+        if (router2ScoreEl) {
+            if (router2.scoreHistory && router2.scoreHistory.length > 0) {
+                router2ScoreEl.textContent = latestScore;
+                router2ScoreEl.style.color = this.getScoreColor(latestScore);
+            } else {
+                router2ScoreEl.textContent = '-';
+                router2ScoreEl.style.color = '';
+            }
+        }
+
         // 更新3D模型状态显示
         if (this.floorPlan3d) {
-            const latestScore = this.getLatestScore('router2');
-            this.floorPlan3d.updateDeviceStatus('路由2', router2.basicInfo.status, latestScore);
+            const floorScore = (router2.scoreHistory && router2.scoreHistory.length > 0) ? latestScore : undefined;
+            this.floorPlan3d.updateDeviceStatus('路由2', router2.basicInfo.status, floorScore);
         }
 
         this.updateRouter2TrendChart();
@@ -1184,6 +1218,7 @@ class NetworkMonitor {
         if (!router3 || !router3.basicInfo) {
             document.getElementById('router3Status').textContent = '-';
             document.getElementById('router3Operator').textContent = '-';
+            document.getElementById('router3Score').textContent = '-';
             this.updateRouter3TrendChart();
             return;
         }
@@ -1191,10 +1226,23 @@ class NetworkMonitor {
         document.getElementById('router3Status').textContent = router3.basicInfo.status || '-';
         document.getElementById('router3Operator').textContent = router3.basicInfo.operator || '-';
 
+        // 更新最新感知分值显示
+        const latestScore = this.getLatestScore('router3');
+        const router3ScoreEl = document.getElementById('router3Score');
+        if (router3ScoreEl) {
+            if (router3.scoreHistory && router3.scoreHistory.length > 0) {
+                router3ScoreEl.textContent = latestScore;
+                router3ScoreEl.style.color = this.getScoreColor(latestScore);
+            } else {
+                router3ScoreEl.textContent = '-';
+                router3ScoreEl.style.color = '';
+            }
+        }
+
         // 更新3D模型状态显示
         if (this.floorPlan3d) {
-            const latestScore = this.getLatestScore('router3');
-            this.floorPlan3d.updateDeviceStatus('路由3', router3.basicInfo.status, latestScore);
+            const floorScore = (router3.scoreHistory && router3.scoreHistory.length > 0) ? latestScore : undefined;
+            this.floorPlan3d.updateDeviceStatus('路由3', router3.basicInfo.status, floorScore);
         }
 
         this.updateRouter3TrendChart();
@@ -1241,9 +1289,9 @@ class NetworkMonitor {
         value.textContent = score || '-';
 
         ring.classList.remove('warning', 'danger');
-        if (score < 60) {
+        if (score < 85) {
             ring.classList.add('danger');
-        } else if (score < 80) {
+        } else if (score < 90) {
             ring.classList.add('warning');
         }
     }
@@ -1287,12 +1335,12 @@ class NetworkMonitor {
             ]
         });
     }
-
+s
     // 根据分数返回颜色（使用项目风格定义的提示色）
     getScoreColor(score) {
-        if (score < 60) return '#f43f5e';   // 红色（<60）- 对应 --accent-danger
-        if (score < 80) return '#fbbf24';   // 黄色（60-79）- 对应 --accent-warning
-        return '#34d399';                    // 绿色（>=80）- 对应 --accent-success
+        if (score < 85) return '#f43f5e';   // 红色（<85）- 对应 --accent-danger
+        if (score < 90) return '#fbbf24';   // 黄色（85-89）- 对应 --accent-warning
+        return '#34d399';                    // 绿色（>=90）- 对应 --accent-success
     }
 
     updateRouter2TrendChart() {
@@ -1340,6 +1388,7 @@ class NetworkMonitor {
         if (!router3 || !router3.basicInfo) {
             document.getElementById('router3Status').textContent = '-';
             document.getElementById('router3Operator').textContent = '-';
+            document.getElementById('router3Score').textContent = '-';
             this.updateRouter3TrendChart();
             return;
         }
@@ -1347,10 +1396,23 @@ class NetworkMonitor {
         document.getElementById('router3Status').textContent = router3.basicInfo.status || '-';
         document.getElementById('router3Operator').textContent = router3.basicInfo.operator || '-';
 
+        // 更新最新感知分值显示
+        const latestScore = this.getLatestScore('router3');
+        const router3ScoreEl = document.getElementById('router3Score');
+        if (router3ScoreEl) {
+            if (router3.scoreHistory && router3.scoreHistory.length > 0) {
+                router3ScoreEl.textContent = latestScore;
+                router3ScoreEl.style.color = this.getScoreColor(latestScore);
+            } else {
+                router3ScoreEl.textContent = '-';
+                router3ScoreEl.style.color = '';
+            }
+        }
+
         // 更新3D模型状态显示
         if (this.floorPlan3d) {
-            const latestScore = this.getLatestScore('router3');
-            this.floorPlan3d.updateDeviceStatus('路由3', router3.basicInfo.status, latestScore);
+            const floorScore = (router3.scoreHistory && router3.scoreHistory.length > 0) ? latestScore : undefined;
+            this.floorPlan3d.updateDeviceStatus('路由3', router3.basicInfo.status, floorScore);
         }
 
         this.updateRouter3TrendChart();
@@ -1578,6 +1640,9 @@ class NetworkMonitor {
             }
             switchBtn.disabled = true;
             switchBtn.textContent = '切换中...';
+            // 切换前保留新旧标识码到历史记录，避免之前的标识码丢失
+            this.saveCodeToHistory(routerKey, this.routerCodes[routerKey]);
+            this.saveCodeToHistory(routerKey, newCode);
             this.routerCodes[routerKey] = newCode;
             this.saveConfig(`${routerKey}Code`, newCode);
 
@@ -1601,10 +1666,11 @@ class NetworkMonitor {
                 this.showModalHint(bodyEl, '请输入标识码', true);
                 return;
             }
-            
-            // 保存到历史记录
+
+            // 切换前保留新旧标识码到历史记录，避免之前的标识码丢失
+            this.saveCodeToHistory(routerKey, this.routerCodes[routerKey]);
             this.saveCodeToHistory(routerKey, newCode);
-            
+
             // 切换到新标识码
             this.routerCodes[routerKey] = newCode;
             this.saveConfig(`${routerKey}Code`, newCode);
@@ -1988,14 +2054,20 @@ class NetworkMonitor {
         try {
             const key = `network_monitor_${routerKey}CodeHistory`;
             const history = localStorage.getItem(key);
-            let result = history ? JSON.parse(history) : [this.routerCodes[routerKey]];
-            
+            let result = history ? JSON.parse(history) : [];
+
+            // 始终确保当前标识码在历史记录中（防止 localStorage 残缺丢失当前码）
+            const currentCode = this.routerCodes[routerKey];
+            if (currentCode && !result.includes(currentCode)) {
+                result.unshift(currentCode);
+            }
+
             // 预设标识码列表，确保始终包含
             const presets = {
                 router2: ['PKKQGW'],
                 router3: ['PKKQRW']
             };
-            
+
             if (presets[routerKey]) {
                 presets[routerKey].forEach(code => {
                     if (!result.includes(code)) {
@@ -2003,7 +2075,7 @@ class NetworkMonitor {
                     }
                 });
             }
-            
+
             return result;
         } catch (e) {
             return [this.routerCodes[routerKey]];
@@ -2015,11 +2087,11 @@ class NetworkMonitor {
         try {
             const key = `network_monitor_${routerKey}CodeHistory`;
             let history = this.getCodeHistory(routerKey);
-            // 如果已存在，不重复添加
             if (!history.includes(code)) {
                 history.push(code);
-                localStorage.setItem(key, JSON.stringify(history));
             }
+            // 始终持久化，确保内存回退的当前码也写入 localStorage，避免切换后丢失
+            localStorage.setItem(key, JSON.stringify(history));
         } catch (e) {
             console.warn('保存标识码历史失败:', e);
         }
@@ -2086,6 +2158,9 @@ class NetworkMonitor {
                 exitEditMode();
                 return;
             }
+            // 切换前保留新旧标识码到历史记录，避免之前的标识码丢失
+            this.saveCodeToHistory(routerKey, this.routerCodes[routerKey]);
+            this.saveCodeToHistory(routerKey, newCode);
             // 保存新标识码到本地配置
             this.routerCodes[routerKey] = newCode;
             this.saveConfig(`${routerKey}Code`, newCode);

@@ -239,28 +239,32 @@ class FloorPlan3D {
         }
     }
 
-    createLabel(text, color, position, scale = { x: 2, y: 0.5 }) {
+    createLabel(text, color, position, scale = { x: 2, y: 0.5 }, options = {}) {
+        const canvasWidth = 256;
+        const canvasHeight = options.canvasHeight || 96;
+        const boxHeight = options.boxHeight || 80;
+
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = 256;
-        canvas.height = 96;
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
 
-        const gradient = ctx.createLinearGradient(0, 0, 256, 0);
+        const gradient = ctx.createLinearGradient(0, 0, canvasWidth, 0);
         gradient.addColorStop(0, 'rgba(6, 10, 19, 0.92)');
         gradient.addColorStop(0.5, 'rgba(10, 16, 32, 0.95)');
         gradient.addColorStop(1, 'rgba(6, 10, 19, 0.92)');
         ctx.fillStyle = gradient;
-        this.roundRect(ctx, 0, 0, 256, 80, 8);
+        this.roundRect(ctx, 0, 0, canvasWidth, boxHeight, 8);
         ctx.fill();
 
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.globalAlpha = 0.7;
-        this.roundRect(ctx, 0, 0, 256, 80, 8);
+        this.roundRect(ctx, 0, 0, canvasWidth, boxHeight, 8);
         ctx.stroke();
         ctx.globalAlpha = 1.0;
 
-        const topLineGradient = ctx.createLinearGradient(0, 0, 256, 0);
+        const topLineGradient = ctx.createLinearGradient(0, 0, canvasWidth, 0);
         topLineGradient.addColorStop(0, 'transparent');
         topLineGradient.addColorStop(0.3, color);
         topLineGradient.addColorStop(0.7, color);
@@ -278,7 +282,7 @@ class FloorPlan3D {
         ctx.textBaseline = 'middle';
         ctx.shadowColor = color;
         ctx.shadowBlur = 8;
-        ctx.fillText(text, 128, 42);
+        ctx.fillText(text, 128, boxHeight / 2);
         ctx.shadowBlur = 0;
 
         const texture = new THREE.CanvasTexture(canvas);
@@ -1163,7 +1167,7 @@ class FloorPlan3D {
             group.add(modelGroup);
         }
 
-        const label = this.createLabel(name, '#00c8ff', { x: 0, y: 2.5, z: 0 });
+        const label = this.createLabel(name, '#00c8ff', { x: 0, y: 2.5, z: 0 }, { x: 2, y: 0.5 }, { canvasHeight: 176, boxHeight: 160 });
         group.add(label);
 
         // 添加状态指示光环（实心圆形，用于显示告警状态）
@@ -1212,7 +1216,8 @@ class FloorPlan3D {
             name: name,
             type: type,
             modelGroup: modelGroup,
-            statusRing: statusRing
+            statusRing: statusRing,
+            label: label
         });
 
         this.scene.add(group);
@@ -1226,30 +1231,105 @@ class FloorPlan3D {
         // 存储设备状态供动画循环使用
         device.status = status;
 
+        // 更新标签显示（名称 + 最新感知分值）
+        this.updateDeviceLabel(device, score);
+
         if (!device.statusRing) return;
 
         const ringMaterial = device.statusRing.material;
-        
+
         // 离线或未查询到状态：灰色半透明
-        if (status === '离线' || status === undefined || status === null || status === '') {
+        if (status === '离线' || status === undefined || status === null || status === '' ||
+            (typeof score !== 'number')) {
             ringMaterial.color.setHex(0x888888);
             ringMaterial.opacity = 0.3;
             return;
         }
 
-        // 根据分数显示告警状态（使用项目风格颜色）
-        if (score < 60) {
-            // 红色告警 - 对应 --accent-danger
-            ringMaterial.color.setHex(0xf43f5e);
+        // 根据分数显示告警状态：>90 绿、85-90 黄、<85 红
+        if (score > 90) {
+            // 正常 - 绿色
+            ringMaterial.color.setHex(0x34d399);
             ringMaterial.opacity = 0.6;
-        } else if (score < 80) {
-            // 黄色告警 - 对应 --accent-warning
+        } else if (score >= 85) {
+            // 警告 - 黄色
             ringMaterial.color.setHex(0xfbbf24);
             ringMaterial.opacity = 0.5;
         } else {
-            // 正常状态：隐藏光环
-            ringMaterial.opacity = 0;
+            // 告警 - 红色
+            ringMaterial.color.setHex(0xf43f5e);
+            ringMaterial.opacity = 0.6;
         }
+    }
+
+    // 更新设备标签：在名称下方显示最新感知分值
+    updateDeviceLabel(device, score) {
+        if (!device || !device.label) return;
+
+        const texture = device.label.material.map;
+        if (!texture) return;
+
+        const canvas = texture.image;
+        const ctx = canvas.getContext('2d');
+        const color = '#00c8ff';
+        const w = canvas.width;
+        const boxHeight = canvas.height - 16;
+
+        // 重绘背景
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const gradient = ctx.createLinearGradient(0, 0, w, 0);
+        gradient.addColorStop(0, 'rgba(6, 10, 19, 0.92)');
+        gradient.addColorStop(0.5, 'rgba(10, 16, 32, 0.95)');
+        gradient.addColorStop(1, 'rgba(6, 10, 19, 0.92)');
+        ctx.fillStyle = gradient;
+        this.roundRect(ctx, 0, 0, w, boxHeight, 8);
+        ctx.fill();
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.7;
+        this.roundRect(ctx, 0, 0, w, boxHeight, 8);
+        ctx.stroke();
+        ctx.globalAlpha = 1.0;
+
+        const topLineGradient = ctx.createLinearGradient(0, 0, w, 0);
+        topLineGradient.addColorStop(0, 'transparent');
+        topLineGradient.addColorStop(0.3, color);
+        topLineGradient.addColorStop(0.7, color);
+        topLineGradient.addColorStop(1, 'transparent');
+        ctx.strokeStyle = topLineGradient;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(8, 1);
+        ctx.lineTo(248, 1);
+        ctx.stroke();
+
+        // 字体大小：名称 30px，分值 = 2 倍名称 = 60px
+        const nameFontSize = 30;
+        const scoreFontSize = nameFontSize * 2;
+
+        // 第一行：设备名称（顶部居中）
+        ctx.font = `bold ${nameFontSize}px Arial`;
+        ctx.fillStyle = '#eaf4ff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 8;
+        ctx.fillText(device.name, w / 2, nameFontSize);
+
+        // 第二行：最新感知分值（下方居中，字体为名称的 2 倍）
+        const scoreText = (typeof score === 'number' && score > 0) ? `${score}分` : '-';
+        const scoreColor = (typeof score === 'number' && score > 90) ? '#34d399'
+            : (typeof score === 'number' && score >= 85) ? '#fbbf24'
+            : (typeof score === 'number' ? '#f43f5e' : '#888888');
+        ctx.font = `bold ${scoreFontSize}px Arial`;
+        ctx.fillStyle = scoreColor;
+        ctx.shadowColor = scoreColor;
+        ctx.shadowBlur = 8;
+        ctx.fillText(scoreText, w / 2, boxHeight - scoreFontSize);
+        ctx.shadowBlur = 0;
+
+        texture.needsUpdate = true;
     }
 
     roundRect(ctx, x, y, width, height, radius) {
